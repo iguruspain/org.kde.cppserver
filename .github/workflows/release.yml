@@ -22,7 +22,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zip gettext python3
 
       - name: Build plasmoid
-        run: bash make-plasmoid.sh
+        run: bash make-plasmoid.sh "org.kde.cppserver-v${{ inputs.version }}.plasmoid"
 
       - name: Create release
         uses: softprops/action-gh-release@v2
