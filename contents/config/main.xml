@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+                          http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <kcfgfile name=""/>
+    <!-- The server list lives in ~/.config/cppserver/servers.json (shared by
+         every instance of the widget). Only per-instance UI state is kept here. -->
+    <group name="General">
+        <entry name="uiJson" type="String">
+            <default>{}</default>
+        </entry>
+    </group>
+</kcfg>

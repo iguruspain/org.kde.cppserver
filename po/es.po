@@ -1,0 +1,327 @@
+# Spanish translations for plasma_applet_org.kde.cppserver package.
+# Copyright (C) 2026 THE plasma_applet_org.kde.cppserver'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the plasma_applet_org.kde.cppserver package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: plasma_applet_org.kde.cppserver\n"
+"Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
+"POT-Creation-Date: 2026-10-09 08:30+0000\n"
+"PO-Revision-Date: 2026-10-09 07:58+0000\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+#: metadata.json:2 contents/ui/main.qml:52
+msgid "cpp servers"
+msgstr "cpp servers"
+
+#: metadata.json:4
+msgid ""
+"Configure, start and stop llama.cpp / audio.cpp / stable-diffusion.cpp "
+"servers and watch their logs."
+msgstr ""
+"Configura, inicia y detiene servidores llama.cpp / audio.cpp / stable-"
+"diffusion.cpp y observa sus logs."
+
+#: contents/config/config.qml:5 contents/ui/MainPage.qml:27
+msgid "Servers"
+msgstr "Servidores"
+
+#: contents/ui/MainPage.qml:28
+msgid "Logs"
+msgstr "Logs"
+
+#: contents/ui/MainPage.qml:49
+msgid "Search server..."
+msgstr "Buscar servidor…"
+
+#: contents/ui/MainPage.qml:57
+msgid "Reload configuration and status"
+msgstr "Recargar configuración y estado"
+
+#: contents/ui/MainPage.qml:63
+msgid "Configure servers…"
+msgstr "Configurar servidores…"
+
+#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:198
+#: contents/ui/config/ConfigServers.qml:345
+msgid "(unnamed)"
+msgstr "(sin nombre)"
+
+#: contents/ui/MainPage.qml:129
+msgid "Not found in PATH: %1"
+msgstr "No encontrado en el PATH: %1"
+
+#: contents/ui/MainPage.qml:134
+msgid "pid %1"
+msgstr "pid %1"
+
+#: contents/ui/MainPage.qml:145
+msgid "Open %1"
+msgstr "Abrir %1"
+
+#: contents/ui/MainPage.qml:151
+msgid "Show logs"
+msgstr "Mostrar logs"
+
+#: contents/ui/MainPage.qml:156
+msgid "Stopping…"
+msgstr "Deteniendo…"
+
+#: contents/ui/MainPage.qml:157
+msgid "Starting…"
+msgstr "Iniciando…"
+
+#: contents/ui/MainPage.qml:158
+msgid "Start"
+msgstr "Iniciar"
+
+#: contents/ui/MainPage.qml:158
+msgid "Stop"
+msgstr "Detener"
+
+#: contents/ui/MainPage.qml:172
+msgid "No servers match"
+msgstr "Ningún servidor coincide"
+
+#: contents/ui/MainPage.qml:173 contents/ui/MainPage.qml:330
+#: contents/ui/main.qml:54
+msgid "No servers configured"
+msgstr "No hay servidores configurados"
+
+#: contents/ui/MainPage.qml:175
+msgid "Add llama.cpp / audio.cpp / … servers in the widget settings."
+msgstr "Añade servidores llama.cpp / audio.cpp / … en los ajustes del widget."
+
+#: contents/ui/MainPage.qml:179
+msgid "Configure…"
+msgstr "Configurar…"
+
+#: contents/ui/MainPage.qml:194 contents/ui/main.qml:55
+msgid "%1 / %2 running"
+msgstr "%1 / %2 en ejecución"
+
+#: contents/ui/MainPage.qml:206
+msgid "%1 binary not in PATH"
+msgid_plural "%1 binaries not in PATH"
+msgstr[0] "%1 binario no está en el PATH"
+msgstr[1] "%1 binarios no están en el PATH"
+
+#: contents/ui/MainPage.qml:251
+msgid "Pause live updates (to select text)"
+msgstr "Pausar la actualización en vivo (para seleccionar texto)"
+
+#: contents/ui/MainPage.qml:259
+msgid "Follow the end of the log"
+msgstr "Seguir el final del log"
+
+#: contents/ui/MainPage.qml:266
+msgid "Copy log"
+msgstr "Copiar log"
+
+#: contents/ui/MainPage.qml:281
+msgid "Filter log lines…"
+msgstr "Filtrar líneas del log…"
+
+#: contents/ui/MainPage.qml:287
+msgid "Interpret the filter as a regular expression"
+msgstr "Interpretar el filtro como expresión regular"
+
+#: contents/ui/MainPage.qml:315
+msgid "(no lines match the filter)"
+msgstr "(ninguna línea coincide con el filtro)"
+
+#: contents/ui/MainPage.qml:316
+msgid "(waiting for output…)"
+msgstr "(esperando salida…)"
+
+#: contents/ui/MainPage.qml:317
+msgid "Server not running – start it from the Servers tab."
+msgstr "Servidor detenido – inícialo desde la pestaña Servidores."
+
+#: contents/ui/MainPage.qml:331
+msgid "Add servers in the widget settings."
+msgstr "Añade servidores en los ajustes del widget."
+
+#: contents/ui/MainPage.qml:343
+msgid "No server selected"
+msgstr "Ningún servidor seleccionado"
+
+#: contents/ui/MainPage.qml:344
+msgid "pid %1 — %2"
+msgstr "pid %1 — %2"
+
+#: contents/ui/MainPage.qml:345
+msgid "Stopped"
+msgstr "Detenido"
+
+#: contents/ui/MainPage.qml:351
+msgid "%1 / %2 lines"
+msgstr "%1 / %2 líneas"
+
+#: contents/ui/MainPage.qml:357
+msgid "invalid regex"
+msgstr "regex no válida"
+
+#: contents/ui/config/ConfigServers.qml:87
+msgid "Could not read the configuration"
+msgstr "No se pudo leer la configuración"
+
+#: contents/ui/config/ConfigServers.qml:93
+msgid "%1 is not valid JSON; fix or remove it."
+msgstr "%1 no es un JSON válido; corrígelo o elimínalo."
+
+#: contents/ui/config/ConfigServers.qml:124
+msgid "unknown error"
+msgstr "error desconocido"
+
+#: contents/ui/config/ConfigServers.qml:165
+msgid "Custom command"
+msgstr "Comando personalizado"
+
+#: contents/ui/config/ConfigServers.qml:184
+msgid "Select config file"
+msgstr "Seleccionar archivo de configuración"
+
+#: contents/ui/config/ConfigServers.qml:195
+msgid "Remove server"
+msgstr "Eliminar servidor"
+
+#: contents/ui/config/ConfigServers.qml:197
+msgid "Remove “%1” from the list? A running process is not stopped."
+msgstr "¿Eliminar «%1» de la lista? Un proceso en ejecución no se detiene."
+
+#: contents/ui/config/ConfigServers.qml:203
+#: contents/ui/config/ConfigServers.qml:386
+msgid "Remove"
+msgstr "Eliminar"
+
+#: contents/ui/config/ConfigServers.qml:212
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: contents/ui/config/ConfigServers.qml:242
+msgid ""
+"Placeholders in the command:<br><b>{HOST}</b> host, <b>{PORT}</b> port, "
+"<b>{CONFIG_FILE}</b> config file.<br><tt>~</tt> and <tt>$HOME</tt> are "
+"expanded. An empty value also removes its flag (<tt>--port {PORT}</tt> with "
+"port 0 disappears)."
+msgstr ""
+"Marcadores en el comando:<br><b>{HOST}</b> host, <b>{PORT}</b> puerto, "
+"<b>{CONFIG_FILE}</b> archivo de configuración.<br>Se expanden <tt>~</tt> y "
+"<tt>$HOME</tt>. Un valor vacío también elimina su opción (<tt>--port "
+"{PORT}</tt> con puerto 0 desaparece)."
+
+#: contents/ui/config/ConfigServers.qml:251
+msgid "Add"
+msgstr "Añadir"
+
+#: contents/ui/config/ConfigServers.qml:275
+msgid "No servers yet"
+msgstr "Aún no hay servidores"
+
+#: contents/ui/config/ConfigServers.qml:276
+msgid "Use “Add” to create one from a template."
+msgstr "Usa «Añadir» para crear uno a partir de una plantilla."
+
+#: contents/ui/config/ConfigServers.qml:331
+msgid "Show in the widget"
+msgstr "Mostrar en el widget"
+
+#: contents/ui/config/ConfigServers.qml:354
+msgid "No command set"
+msgstr "Sin comando"
+
+#: contents/ui/config/ConfigServers.qml:366
+msgid "Move up"
+msgstr "Subir"
+
+#: contents/ui/config/ConfigServers.qml:373
+msgid "Move down"
+msgstr "Bajar"
+
+#: contents/ui/config/ConfigServers.qml:380
+msgid "Collapse"
+msgstr "Contraer"
+
+#: contents/ui/config/ConfigServers.qml:380
+msgid "Edit"
+msgstr "Editar"
+
+#: contents/ui/config/ConfigServers.qml:403
+msgid "Name:"
+msgstr "Nombre:"
+
+#: contents/ui/config/ConfigServers.qml:408
+msgid "e.g. llama-chat"
+msgstr "p. ej. llama-chat"
+
+#: contents/ui/config/ConfigServers.qml:419
+msgid "Command:"
+msgstr "Comando:"
+
+#: contents/ui/config/ConfigServers.qml:431
+msgid "Host / Port:"
+msgstr "Host / Puerto:"
+
+#: contents/ui/config/ConfigServers.qml:448
+msgid "0 = not used"
+msgstr "0 = no se usa"
+
+#: contents/ui/config/ConfigServers.qml:454
+msgid "Config file:"
+msgstr "Archivo de configuración:"
+
+#: contents/ui/config/ConfigServers.qml:468
+msgid "Browse…"
+msgstr "Examinar…"
+
+#: contents/ui/config/ConfigServers.qml:475
+msgid "Will run:"
+msgstr "Se ejecutará:"
+
+#: contents/ui/config/ConfigServers.qml:488
+msgid "(empty)"
+msgstr "(vacío)"
+
+#: contents/ui/config/ConfigServers.qml:516
+msgid "Saving…"
+msgstr "Guardando…"
+
+#: contents/ui/config/ConfigServers.qml:517
+msgid "Not saved"
+msgstr "No guardado"
+
+#: contents/ui/config/ConfigServers.qml:518
+msgid "Changes are saved automatically to %1"
+msgstr "Los cambios se guardan automáticamente en %1"
+
+#: contents/ui/main.qml:39
+msgid "Start all"
+msgstr "Iniciar todos"
+
+#: contents/ui/main.qml:45
+msgid "Stop all"
+msgstr "Detener todos"
+
+#: contents/ui/main.qml:187
+msgid "Could not read %1"
+msgstr "No se pudo leer %1"
+
+#: contents/ui/main.qml:192
+msgid "%1 is not valid JSON (expected a list of servers)"
+msgstr "%1 no es un JSON válido (se esperaba una lista de servidores)"
+
+#: contents/ui/main.qml:255
+msgid "Empty command for %1"
+msgstr "Comando vacío para %1"
+
+#: contents/ui/main.qml:265
+msgid "Failed to start %1"
+msgstr "No se pudo iniciar %1"

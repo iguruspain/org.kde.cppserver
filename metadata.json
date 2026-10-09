@@ -1,0 +1,29 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "",
+                "Name": "iguruspain"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "Configure, start and stop llama.cpp / audio.cpp / stable-diffusion.cpp servers and watch their logs.",
+        "EnabledByDefault": true,
+        "FormFactors": [
+            "desktop",
+            "mediacenter",
+            "handset"
+        ],
+        "Icon": "network-server-symbolic",
+        "Id": "org.kde.cppserver",
+        "License": "MIT",
+        "Name": "cpp servers",
+        "Version": "1.6.0",
+        "Description[es]": "Configura, inicia y detiene servidores llama.cpp / audio.cpp / stable-diffusion.cpp y observa sus logs."
+    },
+    "X-KDE-Keywords": "llama.cpp,audio.cpp,stable-diffusion.cpp,server,inference,logs",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-NotificationArea": "true",
+    "X-Plasma-NotificationAreaCategory": "SystemServices"
+}
