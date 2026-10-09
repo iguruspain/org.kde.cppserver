@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-09 08:30+0000\n"
+"POT-Creation-Date: 2026-10-09 11:14+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -48,8 +48,8 @@ msgstr ""
 msgid "Configure servers…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:198
-#: contents/ui/config/ConfigServers.qml:345
+#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:191
+#: contents/ui/config/ConfigServers.qml:361
 msgid "(unnamed)"
 msgstr ""
 
@@ -180,32 +180,32 @@ msgstr ""
 msgid "unknown error"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:165
+#: contents/ui/config/ConfigServers.qml:158
 msgid "Custom command"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:184
+#: contents/ui/config/ConfigServers.qml:177
 msgid "Select config file"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:195
+#: contents/ui/config/ConfigServers.qml:188
 msgid "Remove server"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:197
+#: contents/ui/config/ConfigServers.qml:190
 msgid "Remove “%1” from the list? A running process is not stopped."
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:203
-#: contents/ui/config/ConfigServers.qml:386
+#: contents/ui/config/ConfigServers.qml:196
+#: contents/ui/config/ConfigServers.qml:388
 msgid "Remove"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:212
+#: contents/ui/config/ConfigServers.qml:205
 msgid "Cancel"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:242
+#: contents/ui/config/ConfigServers.qml:235
 msgid ""
 "Placeholders in the command:<br><b>{HOST}</b> host, <b>{PORT}</b> port, "
 "<b>{CONFIG_FILE}</b> config file.<br><tt>~</tt> and <tt>$HOME</tt> are "
@@ -213,87 +213,79 @@ msgid ""
 "port 0 disappears)."
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:251
+#: contents/ui/config/ConfigServers.qml:244
 msgid "Add"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:275
+#: contents/ui/config/ConfigServers.qml:268
 msgid "No servers yet"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:276
+#: contents/ui/config/ConfigServers.qml:269
 msgid "Use “Add” to create one from a template."
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:331
+#: contents/ui/config/ConfigServers.qml:347
 msgid "Show in the widget"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:354
+#: contents/ui/config/ConfigServers.qml:370
 msgid "No command set"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:366
-msgid "Move up"
-msgstr ""
-
-#: contents/ui/config/ConfigServers.qml:373
-msgid "Move down"
-msgstr ""
-
-#: contents/ui/config/ConfigServers.qml:380
+#: contents/ui/config/ConfigServers.qml:382
 msgid "Collapse"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:380
+#: contents/ui/config/ConfigServers.qml:382
 msgid "Edit"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:403
+#: contents/ui/config/ConfigServers.qml:405
 msgid "Name:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:408
+#: contents/ui/config/ConfigServers.qml:410
 msgid "e.g. llama-chat"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:419
+#: contents/ui/config/ConfigServers.qml:421
 msgid "Command:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:431
+#: contents/ui/config/ConfigServers.qml:433
 msgid "Host / Port:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:448
+#: contents/ui/config/ConfigServers.qml:450
 msgid "0 = not used"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:454
+#: contents/ui/config/ConfigServers.qml:456
 msgid "Config file:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:468
+#: contents/ui/config/ConfigServers.qml:470
 msgid "Browse…"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:475
+#: contents/ui/config/ConfigServers.qml:477
 msgid "Will run:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:488
+#: contents/ui/config/ConfigServers.qml:490
 msgid "(empty)"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:516
+#: contents/ui/config/ConfigServers.qml:518
 msgid "Saving…"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:517
+#: contents/ui/config/ConfigServers.qml:519
 msgid "Not saved"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:518
+#: contents/ui/config/ConfigServers.qml:520
 msgid "Changes are saved automatically to %1"
 msgstr ""
 

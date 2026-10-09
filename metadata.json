@@ -19,7 +19,7 @@
         "Id": "org.kde.cppserver",
         "License": "MIT",
         "Name": "cpp servers",
-        "Version": "1.6.0",
+        "Version": "1.7.0",
         "Description[es]": "Configura, inicia y detiene servidores llama.cpp / audio.cpp / stable-diffusion.cpp y observa sus logs."
     },
     "X-KDE-Keywords": "llama.cpp,audio.cpp,stable-diffusion.cpp,server,inference,logs",

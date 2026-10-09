@@ -46,5 +46,6 @@ echo "Wrote $POT ($(grep -c '^msgid ' "$POT") entries incl. header)"
 shopt -s nullglob
 for po in po/*.po; do
     msgmerge --update --backup=none --quiet "$po" "$POT"
+    msgattrib --no-obsolete --output-file="$po" "$po"   # drop strings no longer in the code
     echo "Merged $(basename "$po"):  $(msgfmt --statistics -o /dev/null "$po" 2>&1)"
 done

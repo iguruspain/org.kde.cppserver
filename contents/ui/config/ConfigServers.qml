@@ -143,13 +143,6 @@ KCM.SimpleKCM {
         scheduleSave()
     }
 
-    function move(i, delta) {
-        var j = i + delta
-        if (j < 0 || j >= serversModel.count) return
-        serversModel.move(i, j, 1)
-        scheduleSave()
-    }
-
     function previewCommand(i) {
         var m = serversModel.get(i)
         return Logic.buildCommand(m, homeDir)
@@ -277,8 +270,21 @@ KCM.SimpleKCM {
         }
 
         // Server cards
-        Repeater {
+        // A ListView (not a Repeater) because Kirigami.ListItemDragHandle needs a
+        // ListView to reposition the dragged delegate. It does not scroll by
+        // itself: it is as tall as its content and the page scrolls.
+        ListView {
+            id: serverList
+            Layout.fillWidth: true
+            Layout.preferredHeight: contentHeight
+            interactive: false
+            spacing: Kirigami.Units.largeSpacing
+            cacheBuffer: 100000          // keep every card alive: heights must be exact
             model: serversModel
+
+            moveDisplaced: Transition {
+                YAnimator { duration: Kirigami.Units.longDuration; easing.type: Easing.InOutQuad }
+            }
 
             delegate: Rectangle {
                 id: card
@@ -294,9 +300,8 @@ KCM.SimpleKCM {
 
                 readonly property bool expanded: page.expandedId === sid
 
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: 1
+                width: ListView.view ? ListView.view.width : 0
+                height: implicitHeight
                 implicitHeight: cardLayout.implicitHeight + Kirigami.Units.largeSpacing * 2
                 radius: Kirigami.Units.cornerRadius
                 color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
@@ -315,6 +320,17 @@ KCM.SimpleKCM {
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Kirigami.Units.smallSpacing
+
+                        Kirigami.ListItemDragHandle {
+                            listItem: card
+                            listView: serverList
+                            enabled: serversModel.count > 1
+                            opacity: enabled ? 1 : 0.3
+                            onMoveRequested: function (oldIndex, newIndex) {
+                                serversModel.move(oldIndex, newIndex, 1)
+                            }
+                            onDropped: page.scheduleSave()
+                        }
 
                         QQC2.Label {
                             text: card.index + 1
@@ -358,20 +374,6 @@ KCM.SimpleKCM {
                             }
                         }
 
-                        QQC2.ToolButton {
-                            icon.name: "go-up"
-                            enabled: card.index > 0
-                            display: QQC2.AbstractButton.IconOnly
-                            onClicked: page.move(card.index, -1)
-                            QQC2.ToolTip.visible: hovered; QQC2.ToolTip.text: i18n("Move up")
-                        }
-                        QQC2.ToolButton {
-                            icon.name: "go-down"
-                            enabled: card.index < serversModel.count - 1
-                            display: QQC2.AbstractButton.IconOnly
-                            onClicked: page.move(card.index, 1)
-                            QQC2.ToolTip.visible: hovered; QQC2.ToolTip.text: i18n("Move down")
-                        }
                         QQC2.ToolButton {
                             icon.name: card.expanded ? "arrow-up" : "document-edit"
                             display: QQC2.AbstractButton.IconOnly

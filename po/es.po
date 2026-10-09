@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-09 08:30+0000\n"
+"POT-Creation-Date: 2026-10-09 11:14+0000\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -49,8 +49,8 @@ msgstr "Recargar configuración y estado"
 msgid "Configure servers…"
 msgstr "Configurar servidores…"
 
-#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:198
-#: contents/ui/config/ConfigServers.qml:345
+#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:191
+#: contents/ui/config/ConfigServers.qml:361
 msgid "(unnamed)"
 msgstr "(sin nombre)"
 
@@ -181,32 +181,32 @@ msgstr "%1 no es un JSON válido; corrígelo o elimínalo."
 msgid "unknown error"
 msgstr "error desconocido"
 
-#: contents/ui/config/ConfigServers.qml:165
+#: contents/ui/config/ConfigServers.qml:158
 msgid "Custom command"
 msgstr "Comando personalizado"
 
-#: contents/ui/config/ConfigServers.qml:184
+#: contents/ui/config/ConfigServers.qml:177
 msgid "Select config file"
 msgstr "Seleccionar archivo de configuración"
 
-#: contents/ui/config/ConfigServers.qml:195
+#: contents/ui/config/ConfigServers.qml:188
 msgid "Remove server"
 msgstr "Eliminar servidor"
 
-#: contents/ui/config/ConfigServers.qml:197
+#: contents/ui/config/ConfigServers.qml:190
 msgid "Remove “%1” from the list? A running process is not stopped."
 msgstr "¿Eliminar «%1» de la lista? Un proceso en ejecución no se detiene."
 
-#: contents/ui/config/ConfigServers.qml:203
-#: contents/ui/config/ConfigServers.qml:386
+#: contents/ui/config/ConfigServers.qml:196
+#: contents/ui/config/ConfigServers.qml:388
 msgid "Remove"
 msgstr "Eliminar"
 
-#: contents/ui/config/ConfigServers.qml:212
+#: contents/ui/config/ConfigServers.qml:205
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: contents/ui/config/ConfigServers.qml:242
+#: contents/ui/config/ConfigServers.qml:235
 msgid ""
 "Placeholders in the command:<br><b>{HOST}</b> host, <b>{PORT}</b> port, "
 "<b>{CONFIG_FILE}</b> config file.<br><tt>~</tt> and <tt>$HOME</tt> are "
@@ -215,90 +215,82 @@ msgid ""
 msgstr ""
 "Marcadores en el comando:<br><b>{HOST}</b> host, <b>{PORT}</b> puerto, "
 "<b>{CONFIG_FILE}</b> archivo de configuración.<br>Se expanden <tt>~</tt> y "
-"<tt>$HOME</tt>. Un valor vacío también elimina su opción (<tt>--port "
-"{PORT}</tt> con puerto 0 desaparece)."
+"<tt>$HOME</tt>. Un valor vacío también elimina su opción (<tt>--port {PORT}</"
+"tt> con puerto 0 desaparece)."
 
-#: contents/ui/config/ConfigServers.qml:251
+#: contents/ui/config/ConfigServers.qml:244
 msgid "Add"
 msgstr "Añadir"
 
-#: contents/ui/config/ConfigServers.qml:275
+#: contents/ui/config/ConfigServers.qml:268
 msgid "No servers yet"
 msgstr "Aún no hay servidores"
 
-#: contents/ui/config/ConfigServers.qml:276
+#: contents/ui/config/ConfigServers.qml:269
 msgid "Use “Add” to create one from a template."
 msgstr "Usa «Añadir» para crear uno a partir de una plantilla."
 
-#: contents/ui/config/ConfigServers.qml:331
+#: contents/ui/config/ConfigServers.qml:347
 msgid "Show in the widget"
 msgstr "Mostrar en el widget"
 
-#: contents/ui/config/ConfigServers.qml:354
+#: contents/ui/config/ConfigServers.qml:370
 msgid "No command set"
 msgstr "Sin comando"
 
-#: contents/ui/config/ConfigServers.qml:366
-msgid "Move up"
-msgstr "Subir"
-
-#: contents/ui/config/ConfigServers.qml:373
-msgid "Move down"
-msgstr "Bajar"
-
-#: contents/ui/config/ConfigServers.qml:380
+#: contents/ui/config/ConfigServers.qml:382
 msgid "Collapse"
 msgstr "Contraer"
 
-#: contents/ui/config/ConfigServers.qml:380
+#: contents/ui/config/ConfigServers.qml:382
 msgid "Edit"
 msgstr "Editar"
 
-#: contents/ui/config/ConfigServers.qml:403
+#: contents/ui/config/ConfigServers.qml:405
 msgid "Name:"
 msgstr "Nombre:"
 
-#: contents/ui/config/ConfigServers.qml:408
+#: contents/ui/config/ConfigServers.qml:410
 msgid "e.g. llama-chat"
 msgstr "p. ej. llama-chat"
 
-#: contents/ui/config/ConfigServers.qml:419
+#: contents/ui/config/ConfigServers.qml:421
 msgid "Command:"
 msgstr "Comando:"
 
-#: contents/ui/config/ConfigServers.qml:431
+#: contents/ui/config/ConfigServers.qml:433
 msgid "Host / Port:"
 msgstr "Host / Puerto:"
 
-#: contents/ui/config/ConfigServers.qml:448
+#: contents/ui/config/ConfigServers.qml:450
 msgid "0 = not used"
 msgstr "0 = no se usa"
 
-#: contents/ui/config/ConfigServers.qml:454
+#: contents/ui/config/ConfigServers.qml:456
 msgid "Config file:"
 msgstr "Archivo de configuración:"
 
-#: contents/ui/config/ConfigServers.qml:468
+#: contents/ui/config/ConfigServers.qml:470
 msgid "Browse…"
 msgstr "Examinar…"
 
-#: contents/ui/config/ConfigServers.qml:475
+#: contents/ui/config/ConfigServers.qml:477
 msgid "Will run:"
 msgstr "Se ejecutará:"
 
-#: contents/ui/config/ConfigServers.qml:488
+#: contents/ui/config/ConfigServers.qml:490
 msgid "(empty)"
 msgstr "(vacío)"
 
-#: contents/ui/config/ConfigServers.qml:516
+#: contents/ui/config/ConfigServers.qml:518
 msgid "Saving…"
 msgstr "Guardando…"
 
-#: contents/ui/config/ConfigServers.qml:517
+#: contents/ui/config/ConfigServers.qml:519
 msgid "Not saved"
 msgstr "No guardado"
 
-#: contents/ui/config/ConfigServers.qml:518
+#: contents/ui/config/ConfigServers.qml:520
 msgid "Changes are saved automatically to %1"
 msgstr "Los cambios se guardan automáticamente en %1"
 

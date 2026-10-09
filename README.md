@@ -32,7 +32,7 @@ Development without reinstalling: `plasmoidviewer -a ./org.kde.cppserver`.
 
 ## Configuration
 
-Right-click the widget → **Configure**. The page is a list of cards (toggle, reorder, edit, remove). **Add** offers templates (llama.cpp, audio.cpp, stable-diffusion.cpp, custom). Changes are **saved automatically** — there is nothing to Apply.
+Right-click the widget → **Configure**. The page is a list of cards (toggle, drag to reorder, edit, remove). **Add** offers templates (llama.cpp, audio.cpp, stable-diffusion.cpp, custom). Changes are **saved automatically** — there is nothing to Apply.
 
 Everything is stored in `~/.config/cppserver/servers.json` (or `$XDG_CONFIG_HOME/cppserver/`), shared by all instances of the widget and easy to back up or edit by hand; the widget notices external edits within a few seconds.
 
