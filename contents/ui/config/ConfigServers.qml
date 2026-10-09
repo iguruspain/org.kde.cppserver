@@ -152,7 +152,7 @@ KCM.SimpleKCM {
         { label: "llama.cpp",           name: "llama.cpp",           port: 8080,
           command: "llama-server --models-preset {CONFIG_FILE} --host {HOST} --port {PORT}" },
         { label: "audio.cpp",           name: "audio.cpp",           port: 8081,
-          command: "audiocpp_server --host {HOST} --port {PORT}" },
+          command: "audiocpp_server --config {CONFIG_FILE} --host {HOST} --port {PORT}" },
         { label: "stable-diffusion.cpp", name: "stable-diffusion.cpp", port: 8082,
           command: "sd-server --listen-ip {HOST} --listen-port {PORT}" },
         { label: i18n("Custom command"), name: "", port: 0, command: "" }
@@ -234,7 +234,7 @@ KCM.SimpleKCM {
                 opacity: 0.8
                 text: i18n("Placeholders in the command:<br>" +
                            "<b>{HOST}</b> host, <b>{PORT}</b> port, <b>{CONFIG_FILE}</b> config file.<br>" +
-                           "<tt>~</tt> and <tt>$HOME</tt> are expanded. An empty value also removes its flag " +
+                           "You can use <tt>~</tt> and <tt>$HOME</tt> are expanded.<br>" + "An empty value also removes its flag " +
                            "(<tt>--port {PORT}</tt> with port 0 disappears).")
             }
 
@@ -264,7 +264,7 @@ KCM.SimpleKCM {
             Layout.fillWidth: true
             Layout.topMargin: Kirigami.Units.gridUnit * 2
             visible: page.loaded && serversModel.count === 0
-            icon.name: "network-server-symbolic"
+            icon.name: "network-server"
             text: i18n("No servers yet")
             explanation: i18n("Use “Add” to create one from a template.")
         }

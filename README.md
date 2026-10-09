@@ -2,6 +2,13 @@
 
 A **KDE Plasma 6** widget to configure, start/stop, and watch live logs of local C++ inference servers (llama.cpp, audio.cpp, stable-diffusion.cpp, …).
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshot1.png" alt="cpp servers tab preview" width="400">
+  <img src="screenshot2.png" alt="logs tab preview" width="400">
+</p>
+
 ## Install
 
 ```bash

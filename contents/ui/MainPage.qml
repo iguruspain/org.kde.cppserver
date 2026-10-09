@@ -139,7 +139,7 @@ ColumnLayout {
 
                             PlasmaComponents.ToolButton {
                                 visible: del.running && del.url !== ""
-                                icon.name: "internet-web-browser"
+                                icon.name: "internet-web-browser-symbolic"
                                 display: QQC2.AbstractButton.IconOnly
                                 onClicked: Qt.openUrlExternally(del.url)
                                 PlasmaComponents.ToolTip { text: i18n("Open %1", del.url) }
@@ -168,7 +168,7 @@ ColumnLayout {
                         anchors.centerIn: parent
                         width: parent.width - Kirigami.Units.gridUnit * 2
                         visible: serverList.count === 0 && !page.backend.loading
-                        icon.name: serversTab.filterText !== "" ? "edit-find" : "network-server-symbolic"
+                        icon.name: serversTab.filterText !== "" ? "edit-find" : "network-server"
                         text: serversTab.filterText !== "" ? i18n("No servers match")
                                                            : i18n("No servers configured")
                         explanation: serversTab.filterText !== ""
