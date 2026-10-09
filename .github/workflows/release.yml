@@ -21,6 +21,21 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y zip gettext python3
 
+      - name: Set version in metadata.json
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          version = os.environ["RELEASE_VERSION"]
+          with open("metadata.json") as f:
+              meta = json.load(f)
+          meta["KPlugin"]["Version"] = version
+          with open("metadata.json", "w") as f:
+              json.dump(meta, f, indent=4, ensure_ascii=False)
+              f.write("\n")
+          EOF
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+
       - name: Build plasmoid
         run: bash make-plasmoid.sh "org.kde.cppserver-v${{ inputs.version }}.plasmoid"
 
