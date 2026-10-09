@@ -207,7 +207,6 @@ msgid "Cancel"
 msgstr "Cancelar"
 
 #: contents/ui/config/ConfigServers.qml:235
-#, fuzzy
 msgid ""
 "Placeholders in the command:<br><b>{HOST}</b> host, <b>{PORT}</b> port, "
 "<b>{CONFIG_FILE}</b> config file.<br>You can use <tt>~</tt> and <tt>$HOME</"
@@ -216,8 +215,8 @@ msgid ""
 msgstr ""
 "Placeholders en el comando:<br><b>{HOST}</b> host, <b>{PORT}</b> puerto, "
 "<b>{CONFIG_FILE}</b> archivo de configuración.<br>Puedes usar <tt>~</tt> y "
-"<tt>$HOME</tt> ya que son resueltos. Un valor vacío también elimina su opción (<tt>--port {PORT}</"
-"tt> con puerto 0 desaparece)."
+"<tt>$HOME</tt> ya que son resueltos. Un valor vacío también elimina su "
+"opción (<tt>--port {PORT}</tt> con puerto 0 desaparece)."
 
 #: contents/ui/config/ConfigServers.qml:244
 msgid "Add"
