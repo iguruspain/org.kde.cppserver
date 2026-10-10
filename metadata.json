@@ -21,7 +21,7 @@
         "License": "MIT",
         "Website": "https://github.com/iguruspain/org.kde.cppserver",
         "Name": "cpp servers",
-        "Version": "1.7.1",
+        "Version": "1.7.2",
         "Description[es]": "Configura, inicia y detiene servidores llama.cpp / audio.cpp / stable-diffusion.cpp y observa sus logs."
     },
     "X-KDE-Keywords": "llama.cpp,audio.cpp,stable-diffusion.cpp,server,inference,logs",

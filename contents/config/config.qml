@@ -6,4 +6,9 @@ ConfigModel {
         icon: "network-server"
         source: "config/ConfigServers.qml"
     }
+    ConfigCategory {
+        name: i18n("Logs")
+        icon: "view-history"
+        source: "config/ConfigLogs.qml"
+    }
 }

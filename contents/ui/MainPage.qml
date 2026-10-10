@@ -131,9 +131,20 @@ ColumnLayout {
                                         var ep = Logic.endpointText(del.modelData)
                                         if (ep) parts.push(ep)
                                         if (del.binary) parts.push(del.binary.split("/").pop())
+                                        //if (del.running) parts.push(i18n("pid %1", page.backend.runningMap[del.sid].pid))
+                                        return parts.join("  •  ")
+                                    }
+                                }
+                                PlasmaComponents.Label {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var parts = []
                                         if (del.running) parts.push(i18n("pid %1", page.backend.runningMap[del.sid].pid))
                                         return parts.join("  •  ")
                                     }
+                                    font: Kirigami.Theme.smallFont
+                                    opacity: 0.7
+                                    elide: Text.ElideRight
                                 }
                             }
 
@@ -220,6 +231,7 @@ ColumnLayout {
             readonly property var filtered: Logic.filterLines(rawText, filterField.text, regexBtn.checked)
             readonly property string logText: filtered.text
             readonly property bool filtering: filterField.text !== ""
+            readonly property var stats: Logic.logStats(rawText)
 
             RowLayout {
                 Layout.fillWidth: true
@@ -267,6 +279,7 @@ ColumnLayout {
                 }
             }
 
+
             RowLayout {
                 Layout.fillWidth: true
                 Layout.leftMargin: Kirigami.Units.smallSpacing
@@ -285,6 +298,21 @@ ColumnLayout {
                     checkable: true
                     text: ".*"
                     PlasmaComponents.ToolTip { text: i18n("Interpret the filter as a regular expression") }
+                }
+            }
+            PlasmaComponents.Label {
+                id: logFileLabel
+                Layout.fillWidth: true
+                font: Kirigami.Theme.smallFont
+                elide: Text.ElideLeft
+                enabled: logsTab.running && logsTab.running.logfile !== ""
+                opacity: 0.7
+                text:logsTab.running.logfile ? i18n("Log file: %1", logsTab.running.logfile) : ""
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: logFileLabel.text !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Qt.openUrlExternally("file://" + logsTab.running.logfile)
                 }
             }
 
@@ -309,7 +337,8 @@ ColumnLayout {
                     wrapMode: TextEdit.Wrap
                     textFormat: TextEdit.PlainText
                     font.family: "monospace"
-                    font.pointSize: Kirigami.Theme.smallFont.pointSize
+                    font.pointSize: page.backend.logFontSize > 0 ? page.backend.logFontSize
+                        : Kirigami.Theme.smallFont.pointSize
                     background: null
                     text: logsTab.logText !== "" ? logsTab.logText
                         : (logsTab.filtering && logsTab.rawText !== "") ? i18n("(no lines match the filter)")
@@ -337,17 +366,43 @@ ColumnLayout {
                 contentItem: RowLayout {
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
-                        elide: Text.ElideMiddle
+                        elide: Text.ElideLeft
                         font: Kirigami.Theme.smallFont
                         opacity: 0.7
                         text: !logsTab.entry ? i18n("No server selected")
-                            : logsTab.running ? i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
+                            //: logsTab.running ? i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
+                            : logsTab.running ? i18n("pid %1", logsTab.running.pid)
                             : i18n("Stopped")
+                    }
+                    PlasmaComponents.Label {
+                        visible: page.backend.showStatErrors && logsTab.stats.errors > 0
+                        font: Kirigami.Theme.smallFont
+                        color: Kirigami.Theme.negativeTextColor
+                        text: i18np("%1 error", "%1 errors", logsTab.stats.errors)
+                    }
+                    PlasmaComponents.Label {
+                        visible: page.backend.showStatWarnings && logsTab.stats.warnings > 0
+                        font: Kirigami.Theme.smallFont
+                        color: Kirigami.Theme.neutralTextColor
+                        opacity: 0.7
+                        text: i18np("%1 warning", "%1 warnings", logsTab.stats.warnings)
+                    }
+                    PlasmaComponents.Label {
+                        visible: page.backend.showStatOom && logsTab.stats.oom > 0
+                        font: Kirigami.Theme.smallFont
+                        color: Kirigami.Theme.negativeTextColor
+                        text: i18n("%1 OOM", logsTab.stats.oom)
+                    }
+                    PlasmaComponents.Label {
+                        visible: page.backend.showStatTps && logsTab.stats.maxTps > 0
+                        font: Kirigami.Theme.smallFont
+                        opacity: 0.7
+                        text: i18n("max %1 t/s", logsTab.stats.maxTps.toFixed(2))
                     }
                     PlasmaComponents.Label {
                         visible: logsTab.filtering && logsTab.filtered.ok
                         font: Kirigami.Theme.smallFont
-                        opacity: 0.6
+                        opacity: 0.7
                         text: i18n("%1 / %2 lines", logsTab.filtered.matched, logsTab.filtered.total)
                     }
                     PlasmaComponents.Label {

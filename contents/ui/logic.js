@@ -153,6 +153,41 @@ function filterLines(text, filter, useRegex) {
     return { text: kept.join("\n"), ok: true, matched: kept.length, total: lines.length };
 }
 
+// ── Log statistics ────────────────────────────────────────────────────────
+// One pass over the tail: each line is counted at most once, most specific
+// category wins (OOM > error > warning). glog-style level prefixes
+// ("12.34.56.789 E " / " W ", optionally with a "[pid] " in front) catch
+// llama.cpp lines that don't name the level word. Lines matching EXCEPT_RE
+// (benign messages with error-like words) are skipped entirely. maxTps is the highest
+// "N t/s" value seen (llama.cpp generation rate); 0 when none.
+// Benign lines that contain error-like words but are not real errors
+// (e.g. llama.cpp "failed to read tensor info", "tensor name 4 is too long").
+const EXCEPT_RE = /failed to read tensor info|tensor name \d+ is too long/i;
+const OOM_RE   = /out of (video |host )?memory|cannot allocate|memory allocation (failed|error)|no space left on device|not enough (video |host )?memory|cudaerrormemoryallocation/i;
+const ERROR_RE = /\b(errors?|failed?|failure|fatal|aborted?|panic|exception|segfault|segmentation fault|core dumped|critical|backtrace)\b|^\s*(?:\[\d+\] )?\d+\.\d+\.\d+\.\d+ E /i;
+const WARN_RE  = /warn(ing|s|ed)?\b|deprecat|^\s*(?:\[\d+\] )?\d+\.\d+\.\d+\.\d+ W /i;
+const TPS_RE   = /([0-9]+(?:\.[0-9]+)?)\s*t\/s\b/g;
+
+function logStats(text) {
+    const lines = String(text || "").split("\n");
+    let oom = 0, errors = 0, warnings = 0, maxTps = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (l === "") continue;
+        if (EXCEPT_RE.test(l)) continue;
+        if (OOM_RE.test(l)) oom++;
+        else if (ERROR_RE.test(l)) errors++;
+        else if (WARN_RE.test(l)) warnings++;
+        TPS_RE.lastIndex = 0;
+        let m;
+        while ((m = TPS_RE.exec(l)) !== null) {
+            const v = Number(m[1]);
+            if (v > maxTps) maxTps = v;
+        }
+    }
+    return { oom: oom, errors: errors, warnings: warnings, maxTps: maxTps };
+}
+
 // ── Script output parsing ───────────────────────────────────────────────────
 // `key=value` lines.
 function parseKv(stdout) {

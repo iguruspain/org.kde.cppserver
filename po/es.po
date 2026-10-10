@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-09 15:08+0200\n"
+"POT-Creation-Date: 2026-10-10 09:35+0200\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -33,7 +33,7 @@ msgstr ""
 msgid "Servers"
 msgstr "Servidores"
 
-#: contents/ui/MainPage.qml:28
+#: contents/config/config.qml:10 contents/ui/MainPage.qml:28
 msgid "Logs"
 msgstr "Logs"
 
@@ -90,7 +90,7 @@ msgstr "Detener"
 msgid "No servers match"
 msgstr "Ningún servidor coincide"
 
-#: contents/ui/MainPage.qml:173 contents/ui/MainPage.qml:330
+#: contents/ui/MainPage.qml:173 contents/ui/MainPage.qml:332
 #: contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr "No hay servidores configurados"
@@ -113,61 +113,123 @@ msgid_plural "%1 binaries not in PATH"
 msgstr[0] "%1 binario no está en el PATH"
 msgstr[1] "%1 binarios no están en el PATH"
 
-#: contents/ui/MainPage.qml:251
+#: contents/ui/MainPage.qml:252
 msgid "Pause live updates (to select text)"
 msgstr "Pausar la actualización en vivo (para seleccionar texto)"
 
-#: contents/ui/MainPage.qml:259
+#: contents/ui/MainPage.qml:260
 msgid "Follow the end of the log"
 msgstr "Seguir el final del log"
 
-#: contents/ui/MainPage.qml:266
+#: contents/ui/MainPage.qml:267
 msgid "Copy log"
 msgstr "Copiar log"
 
-#: contents/ui/MainPage.qml:281
+#: contents/ui/MainPage.qml:282
 msgid "Filter log lines…"
 msgstr "Filtrar líneas del log…"
 
-#: contents/ui/MainPage.qml:287
+#: contents/ui/MainPage.qml:288
 msgid "Interpret the filter as a regular expression"
 msgstr "Interpretar el filtro como expresión regular"
 
-#: contents/ui/MainPage.qml:315
+#: contents/ui/MainPage.qml:317
 msgid "(no lines match the filter)"
 msgstr "(ninguna línea coincide con el filtro)"
 
-#: contents/ui/MainPage.qml:316
+#: contents/ui/MainPage.qml:318
 msgid "(waiting for output…)"
 msgstr "(esperando salida…)"
 
-#: contents/ui/MainPage.qml:317
+#: contents/ui/MainPage.qml:319
 msgid "Server not running – start it from the Servers tab."
 msgstr "Servidor detenido – inícialo desde la pestaña Servidores."
 
-#: contents/ui/MainPage.qml:331
+#: contents/ui/MainPage.qml:333
 msgid "Add servers in the widget settings."
 msgstr "Añade servidores en los ajustes del widget."
 
-#: contents/ui/MainPage.qml:343
+#: contents/ui/MainPage.qml:345
 msgid "No server selected"
 msgstr "Ningún servidor seleccionado"
 
-#: contents/ui/MainPage.qml:344
+#: contents/ui/MainPage.qml:346
 msgid "pid %1 — %2"
 msgstr "pid %1 — %2"
 
-#: contents/ui/MainPage.qml:345
+#: contents/ui/MainPage.qml:347
 msgid "Stopped"
 msgstr "Detenido"
 
-#: contents/ui/MainPage.qml:351
+#: contents/ui/MainPage.qml:353
+msgid "%1 error"
+msgid_plural "%1 errors"
+msgstr[0] "%1 error"
+msgstr[1] "%1 errores"
+
+#: contents/ui/MainPage.qml:359
+msgid "%1 warning"
+msgid_plural "%1 warnings"
+msgstr[0] "%1 aviso"
+msgstr[1] "%1 avisos"
+
+#: contents/ui/MainPage.qml:365
+msgid "%1 OOM"
+msgstr "%1 OOM"
+
+#: contents/ui/MainPage.qml:371
+msgid "max %1 t/s"
+msgstr "máx. %1 t/s"
+
+#: contents/ui/MainPage.qml:377
 msgid "%1 / %2 lines"
 msgstr "%1 / %2 líneas"
 
-#: contents/ui/MainPage.qml:357
+#: contents/ui/MainPage.qml:383
 msgid "invalid regex"
 msgstr "regex no válida"
+
+#: contents/ui/config/ConfigLogs.qml:20
+msgid "Options for the log view in the widget. Changes apply immediately."
+msgstr ""
+"Opciones de la vista del log en el widget. Los cambios se aplican de "
+"inmediato."
+
+#: contents/ui/config/ConfigLogs.qml:25
+msgid "Font"
+msgstr "Fuente"
+
+#: contents/ui/config/ConfigLogs.qml:37
+msgid "Log font size (0 = theme default)"
+msgstr "Tamaño de la fuente del log (0 = tema predeterminado)"
+
+#: contents/ui/config/ConfigLogs.qml:43
+msgid "Statistics"
+msgstr "Estadísticas"
+
+#: contents/ui/config/ConfigLogs.qml:47
+msgid "Show error count"
+msgstr "Mostrar contador de errores"
+
+#: contents/ui/config/ConfigLogs.qml:52
+msgid "Show warning count"
+msgstr "Mostrar contador de avisos"
+
+#: contents/ui/config/ConfigLogs.qml:57
+msgid "Show out-of-memory count"
+msgstr "Mostrar contador de OOM"
+
+#: contents/ui/config/ConfigLogs.qml:62
+msgid "Show max generation speed (t/s, llama.cpp only)"
+msgstr "Mostrar velocidad máxima de generación (t/s, solo llama.cpp)"
+
+#: contents/ui/config/ConfigLogs.qml:71
+msgid ""
+"Counts are computed from the log text and work with any server. The speed (t/"
+"s) is only printed by llama.cpp."
+msgstr ""
+"Los contadores se calculan a partir del texto del log y funcionan con "
+"cualquier servidor. La velocidad (t/s) solo la imprime llama.cpp."
 
 #: contents/ui/config/ConfigServers.qml:87
 msgid "Could not read the configuration"
@@ -302,18 +364,18 @@ msgstr "Iniciar todos"
 msgid "Stop all"
 msgstr "Detener todos"
 
-#: contents/ui/main.qml:187
+#: contents/ui/main.qml:196
 msgid "Could not read %1"
 msgstr "No se pudo leer %1"
 
-#: contents/ui/main.qml:192
+#: contents/ui/main.qml:201
 msgid "%1 is not valid JSON (expected a list of servers)"
 msgstr "%1 no es un JSON válido (se esperaba una lista de servidores)"
 
-#: contents/ui/main.qml:255
+#: contents/ui/main.qml:264
 msgid "Empty command for %1"
 msgstr "Comando vacío para %1"
 
-#: contents/ui/main.qml:265
+#: contents/ui/main.qml:274
 msgid "Failed to start %1"
 msgstr "No se pudo iniciar %1"

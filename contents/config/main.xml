@@ -10,5 +10,20 @@
         <entry name="uiJson" type="String">
             <default>{}</default>
         </entry>
+        <entry name="logFontSize" type="Int">
+            <default>0</default>
+        </entry>
+        <entry name="logShowErrors" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="logShowWarnings" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="logShowOom" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="logShowTps" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

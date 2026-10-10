@@ -70,6 +70,15 @@ PlasmoidItem {
     property string errorMsg: ""
     property bool logsPaused: false
 
+    // Log view preferences (per-instance KConfig, see contents/config/main.xml).
+    // Written by config/ConfigLogs.qml; the defensive coercions make a missing
+    // key behave as the main.xml default.
+    readonly property int logFontSize: Number(Plasmoid.configuration.logFontSize) || 0
+    readonly property bool showStatErrors: Plasmoid.configuration.logShowErrors !== false
+    readonly property bool showStatWarnings: Plasmoid.configuration.logShowWarnings !== false
+    readonly property bool showStatOom: Plasmoid.configuration.logShowOom !== false
+    readonly property bool showStatTps: Plasmoid.configuration.logShowTps !== false
+
     // Servers shown in the widget: enabled ones, plus any disabled one that is
     // still running (so it can always be stopped).
     readonly property var servers: allServers.filter(function (s) {
