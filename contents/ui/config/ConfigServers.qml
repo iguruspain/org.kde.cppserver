@@ -233,6 +233,8 @@ KCM.SimpleKCM {
     // ── UI ────────────────────────────────────────────────────────────────
     ColumnLayout {
         spacing: Kirigami.Units.largeSpacing
+        width: Math.min(page.width - pageMargin * 2, Kirigami.Units.gridUnit * 45)
+        x: Math.max(pageMargin, (page.width - width) / 2)
 
         Kirigami.InlineMessage {
             Layout.fillWidth: true
@@ -241,7 +243,25 @@ KCM.SimpleKCM {
             text: page.statusDetail
         }
 
+        component SectionHeader: ColumnLayout {
+            property string title
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.largeSpacing
+
+            Kirigami.Heading {
+                text: parent.title
+                level: 4
+                font.weight: Font.Bold
+                type: Kirigami.Heading.Type.Normal
+            }
+            Kirigami.Separator {
+                Layout.fillWidth: true
+            }
+        }
+        
         // Header: help + Add
+        SectionHeader { title: i18n("Placeholders") }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: Kirigami.Units.largeSpacing
@@ -258,6 +278,22 @@ KCM.SimpleKCM {
                            "You can use <tt>~</tt> and <tt>$HOME</tt> are expanded.<br>" + "An empty value also removes its flag " +
                            "(<tt>--port {PORT}</tt> with port 0 disappears).")
             }
+        }
+
+        Kirigami.PlaceholderMessage {
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.gridUnit * 2
+            visible: page.loaded && serversModel.count === 0
+            icon.name: "network-server"
+            text: i18n("No servers yet")
+            explanation: i18n("Use “Add” to create one from a template.")
+        }
+
+        SectionHeader { title: i18n("List Servers") }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.largeSpacing
 
             QQC2.Button {
                 Layout.alignment: Qt.AlignTop
@@ -279,15 +315,6 @@ KCM.SimpleKCM {
                     }
                 }
             }
-        }
-
-        Kirigami.PlaceholderMessage {
-            Layout.fillWidth: true
-            Layout.topMargin: Kirigami.Units.gridUnit * 2
-            visible: page.loaded && serversModel.count === 0
-            icon.name: "network-server"
-            text: i18n("No servers yet")
-            explanation: i18n("Use “Add” to create one from a template.")
         }
 
         // Server cards
@@ -439,7 +466,7 @@ KCM.SimpleKCM {
                         }
 
                         Labeled {
-                            label: i18n("ID:")
+                            label: i18n("Log ID:")
                             QQC2.ToolTip.visible: hovered
                             QQC2.ToolTip.text: i18n("Stable identifier; the log file is named after it. Changing it renames the log (a running server keeps running).")
                             QQC2.TextField {

@@ -200,7 +200,8 @@ ColumnLayout {
                 contentItem: RowLayout {
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         opacity: 0.7
                         text: i18n("%1 / %2 running", page.backend.runningCount, page.backend.servers.length)
                     }

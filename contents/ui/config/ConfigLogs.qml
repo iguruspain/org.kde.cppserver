@@ -26,6 +26,7 @@ KCM.SimpleKCM {
         }
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 32
 
             QQC2.SpinBox {
                 from: 0
