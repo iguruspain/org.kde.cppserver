@@ -7,6 +7,8 @@
 #   cfgwrite <json>           atomically replace servers.json
 #   start <id> <command>      launch detached  -> pid= logfile=   (or error=)
 #   stop <id>                 SIGTERM the process group, SIGKILL after 5 s
+#   rename <old> <new>        migrate <old>.{log,pid} to <new>.{log,pid}; a
+#                             running server keeps running (no restart)
 #   statusall <id>...         cfgmtime=N, then "<id> alive=1 pid= logfile=" / "<id> alive=0"
 #   logread <path> [lines]    tail a log inside the log root (path-validated)
 #   deps <binary>...          <binary>=OK|MISSING
@@ -182,6 +184,30 @@ stop() {
     echo "ok=1"
 }
 
+rename() {
+    local old new
+    old="$(slug "${1:-}")"
+    new="$(slug "${2:-}")"
+    if [[ -z "$old" || -z "$new" || "$old" == "$new" ]]; then
+        echo "error=missing_args"
+        exit 2
+    fi
+    ensure_log_root
+    local old_pidfile="$LOG_ROOT/$old.pid" new_pidfile="$LOG_ROOT/$new.pid"
+    local old_logfile="$LOG_ROOT/$old.log" new_logfile="$LOG_ROOT/$new.log"
+    # Never clobber an existing <new>.* (a different server may own that id).
+    if [[ -e "$new_pidfile" || -e "$new_logfile" ]]; then
+        echo "error=id_taken"
+        exit 6
+    fi
+    # A running server is unaffected: its stdout fd follows the inode across
+    # the mv, and the pidfile is just a record, so it keeps running under the
+    # new id without a restart.
+    [[ -f "$old_pidfile" ]] && mv -f "$old_pidfile" "$new_pidfile"
+    [[ -f "$old_logfile" ]] && mv -f "$old_logfile" "$new_logfile"
+    echo "ok=1"
+}
+
 statusall() {
     if [[ $# -eq 0 ]]; then
         echo "cfgmtime=$(cfgmtime)"
@@ -243,6 +269,7 @@ case "$cmd" in
     cfgwrite)  cfgwrite "$@" ;;
     start)     start "$@" ;;
     stop)      stop "$@" ;;
+    rename)    rename "$@" ;;
     statusall) statusall "$@" ;;
     logread)   logread "$@" ;;
     deps)      deps "$@" ;;

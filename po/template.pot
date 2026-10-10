@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-10 09:35+0200\n"
+"POT-Creation-Date: 2026-10-10 21:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -48,8 +48,8 @@ msgstr ""
 msgid "Configure servers…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:191
-#: contents/ui/config/ConfigServers.qml:361
+#: contents/ui/MainPage.qml:117 contents/ui/config/ConfigServers.qml:212
+#: contents/ui/config/ConfigServers.qml:382
 msgid "(unnamed)"
 msgstr ""
 
@@ -57,134 +57,135 @@ msgstr ""
 msgid "Not found in PATH: %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:134
+#. i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
+#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:375
 msgid "pid %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:145
+#: contents/ui/MainPage.qml:156
 msgid "Open %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:151
+#: contents/ui/MainPage.qml:162
 msgid "Show logs"
 msgstr ""
 
-#: contents/ui/MainPage.qml:156
+#: contents/ui/MainPage.qml:167
 msgid "Stopping…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:157
+#: contents/ui/MainPage.qml:168
 msgid "Starting…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:158
+#: contents/ui/MainPage.qml:169
 msgid "Start"
 msgstr ""
 
-#: contents/ui/MainPage.qml:158
+#: contents/ui/MainPage.qml:169
 msgid "Stop"
 msgstr ""
 
-#: contents/ui/MainPage.qml:172
+#: contents/ui/MainPage.qml:183
 msgid "No servers match"
 msgstr ""
 
-#: contents/ui/MainPage.qml:173 contents/ui/MainPage.qml:332
+#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:359
 #: contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr ""
 
-#: contents/ui/MainPage.qml:175
+#: contents/ui/MainPage.qml:186
 msgid "Add llama.cpp / audio.cpp / … servers in the widget settings."
 msgstr ""
 
-#: contents/ui/MainPage.qml:179
+#: contents/ui/MainPage.qml:190
 msgid "Configure…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:194 contents/ui/main.qml:55
+#: contents/ui/MainPage.qml:205 contents/ui/main.qml:55
 msgid "%1 / %2 running"
 msgstr ""
 
-#: contents/ui/MainPage.qml:206
+#: contents/ui/MainPage.qml:217
 msgid "%1 binary not in PATH"
 msgid_plural "%1 binaries not in PATH"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:252
+#: contents/ui/MainPage.qml:263
 msgid "Pause live updates (to select text)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:260
+#: contents/ui/MainPage.qml:271
 msgid "Follow the end of the log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:267
+#: contents/ui/MainPage.qml:278
 msgid "Copy log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:282
+#: contents/ui/MainPage.qml:294
 msgid "Filter log lines…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:288
+#: contents/ui/MainPage.qml:300
 msgid "Interpret the filter as a regular expression"
 msgstr ""
 
-#: contents/ui/MainPage.qml:317
+#: contents/ui/MainPage.qml:310
+msgid "Log file: %1"
+msgstr ""
+
+#: contents/ui/MainPage.qml:344
 msgid "(no lines match the filter)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:318
+#: contents/ui/MainPage.qml:345
 msgid "(waiting for output…)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:319
+#: contents/ui/MainPage.qml:346
 msgid "Server not running – start it from the Servers tab."
 msgstr ""
 
-#: contents/ui/MainPage.qml:333
+#: contents/ui/MainPage.qml:360
 msgid "Add servers in the widget settings."
 msgstr ""
 
-#: contents/ui/MainPage.qml:345
+#: contents/ui/MainPage.qml:373
 msgid "No server selected"
 msgstr ""
 
-#: contents/ui/MainPage.qml:346
-msgid "pid %1 — %2"
-msgstr ""
-
-#: contents/ui/MainPage.qml:347
+#: contents/ui/MainPage.qml:376
 msgid "Stopped"
 msgstr ""
 
-#: contents/ui/MainPage.qml:353
+#: contents/ui/MainPage.qml:383
 msgid "%1 error"
 msgid_plural "%1 errors"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:359
+#: contents/ui/MainPage.qml:391
 msgid "%1 warning"
 msgid_plural "%1 warnings"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:365
+#: contents/ui/MainPage.qml:398
 msgid "%1 OOM"
 msgstr ""
 
-#: contents/ui/MainPage.qml:371
+#: contents/ui/MainPage.qml:405
 msgid "max %1 t/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:377
+#: contents/ui/MainPage.qml:412
 msgid "%1 / %2 lines"
 msgstr ""
 
-#: contents/ui/MainPage.qml:383
+#: contents/ui/MainPage.qml:419
 msgid "invalid regex"
 msgstr ""
 
@@ -235,35 +236,36 @@ msgid "%1 is not valid JSON; fix or remove it."
 msgstr ""
 
 #: contents/ui/config/ConfigServers.qml:124
+#: contents/ui/config/ConfigServers.qml:153
 msgid "unknown error"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:158
+#: contents/ui/config/ConfigServers.qml:179
 msgid "Custom command"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:177
+#: contents/ui/config/ConfigServers.qml:198
 msgid "Select config file"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:188
+#: contents/ui/config/ConfigServers.qml:209
 msgid "Remove server"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:190
+#: contents/ui/config/ConfigServers.qml:211
 msgid "Remove “%1” from the list? A running process is not stopped."
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:196
-#: contents/ui/config/ConfigServers.qml:388
+#: contents/ui/config/ConfigServers.qml:217
+#: contents/ui/config/ConfigServers.qml:409
 msgid "Remove"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:205
+#: contents/ui/config/ConfigServers.qml:226
 msgid "Cancel"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:235
+#: contents/ui/config/ConfigServers.qml:256
 msgid ""
 "Placeholders in the command:<br><b>{HOST}</b> host, <b>{PORT}</b> port, "
 "<b>{CONFIG_FILE}</b> config file.<br>You can use <tt>~</tt> and <tt>$HOME</"
@@ -271,79 +273,97 @@ msgid ""
 "</tt> with port 0 disappears)."
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:244
+#: contents/ui/config/ConfigServers.qml:265
 msgid "Add"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:268
+#: contents/ui/config/ConfigServers.qml:289
 msgid "No servers yet"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:269
+#: contents/ui/config/ConfigServers.qml:290
 msgid "Use “Add” to create one from a template."
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:347
+#: contents/ui/config/ConfigServers.qml:368
 msgid "Show in the widget"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:370
+#: contents/ui/config/ConfigServers.qml:391
 msgid "No command set"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:382
+#: contents/ui/config/ConfigServers.qml:403
 msgid "Collapse"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:382
+#: contents/ui/config/ConfigServers.qml:403
 msgid "Edit"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:405
+#: contents/ui/config/ConfigServers.qml:426
 msgid "Name:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:410
+#: contents/ui/config/ConfigServers.qml:431
 msgid "e.g. llama-chat"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:421
+#: contents/ui/config/ConfigServers.qml:442
+msgid "ID:"
+msgstr ""
+
+#: contents/ui/config/ConfigServers.qml:444
+msgid ""
+"Stable identifier; the log file is named after it. Changing it renames the "
+"log (a running server keeps running)."
+msgstr ""
+
+#: contents/ui/config/ConfigServers.qml:449
+msgid "e.g. agents-cpp"
+msgstr ""
+
+#: contents/ui/config/ConfigServers.qml:459
+msgid "ID “%1” is already in use"
+msgstr ""
+
+#: contents/ui/config/ConfigServers.qml:474
 msgid "Command:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:433
+#: contents/ui/config/ConfigServers.qml:486
 msgid "Host / Port:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:450
+#: contents/ui/config/ConfigServers.qml:503
 msgid "0 = not used"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:456
+#: contents/ui/config/ConfigServers.qml:509
 msgid "Config file:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:470
+#: contents/ui/config/ConfigServers.qml:523
 msgid "Browse…"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:477
+#: contents/ui/config/ConfigServers.qml:530
 msgid "Will run:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:490
+#: contents/ui/config/ConfigServers.qml:543
 msgid "(empty)"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:518
+#: contents/ui/config/ConfigServers.qml:571
 msgid "Saving…"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:519
+#: contents/ui/config/ConfigServers.qml:572
 msgid "Not saved"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:520
+#: contents/ui/config/ConfigServers.qml:573
 msgid "Changes are saved automatically to %1"
 msgstr ""
 

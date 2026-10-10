@@ -367,7 +367,8 @@ ColumnLayout {
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
                         elide: Text.ElideLeft
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         opacity: 0.7
                         text: !logsTab.entry ? i18n("No server selected")
                             //: logsTab.running ? i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
@@ -376,38 +377,44 @@ ColumnLayout {
                     }
                     PlasmaComponents.Label {
                         visible: page.backend.showStatErrors && logsTab.stats.errors > 0
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         color: Kirigami.Theme.negativeTextColor
                         text: i18np("%1 error", "%1 errors", logsTab.stats.errors)
                     }
                     PlasmaComponents.Label {
                         visible: page.backend.showStatWarnings && logsTab.stats.warnings > 0
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         color: Kirigami.Theme.neutralTextColor
                         opacity: 0.7
                         text: i18np("%1 warning", "%1 warnings", logsTab.stats.warnings)
                     }
                     PlasmaComponents.Label {
                         visible: page.backend.showStatOom && logsTab.stats.oom > 0
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         color: Kirigami.Theme.negativeTextColor
                         text: i18n("%1 OOM", logsTab.stats.oom)
                     }
                     PlasmaComponents.Label {
                         visible: page.backend.showStatTps && logsTab.stats.maxTps > 0
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         opacity: 0.7
                         text: i18n("max %1 t/s", logsTab.stats.maxTps.toFixed(2))
                     }
                     PlasmaComponents.Label {
                         visible: logsTab.filtering && logsTab.filtered.ok
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         opacity: 0.7
                         text: i18n("%1 / %2 lines", logsTab.filtered.matched, logsTab.filtered.total)
                     }
                     PlasmaComponents.Label {
                         visible: logsTab.filtering && !logsTab.filtered.ok
-                        font: Kirigami.Theme.smallFont
+                        //font: Kirigami.Theme.smallFont
+                        font.bold: true
                         color: Kirigami.Theme.negativeTextColor
                         text: i18n("invalid regex")
                     }

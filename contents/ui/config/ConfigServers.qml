@@ -134,6 +134,27 @@ KCM.SimpleKCM {
         scheduleSave()
     }
 
+    // True when some server other than exceptIndex already uses this id.
+    function idTaken(id, exceptIndex) {
+        for (var i = 0; i < serversModel.count; i++) {
+            if (i !== exceptIndex && serversModel.get(i).sid === id) return true
+        }
+        return false
+    }
+
+    // Migrate <old>.{log,pid} to <new>.{log,pid} in the cache. A running
+    // server keeps running (the script just renames the files).
+    function renameId(oldId, newId) {
+        ctl("rename " + Logic.shQuote(oldId) + " " + Logic.shQuote(newId),
+            function (code, out, err) {
+                var kv = Logic.parseKv(out)
+                if (code !== 0) {
+                    page.status = "error"
+                    page.statusDetail = kv.error || err || i18n("unknown error")
+                }
+            })
+    }
+
     function addServer(name, command, port, configFile) {
         var id = uniqueId(name || "server")
         serversModel.append({ sid: id, name: name, command: command, host: "127.0.0.1", port: port,
@@ -413,6 +434,38 @@ KCM.SimpleKCM {
                                 Component.onCompleted: if (page.focusId === card.sid) {
                                     page.focusId = ""
                                     forceActiveFocus()
+                                }
+                            }
+                        }
+
+                        Labeled {
+                            label: i18n("ID:")
+                            QQC2.ToolTip.visible: hovered
+                            QQC2.ToolTip.text: i18n("Stable identifier; the log file is named after it. Changing it renames the log (a running server keeps running).")
+                            QQC2.TextField {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                font.family: "monospace"
+                                placeholderText: i18n("e.g. llama-cpp")
+                                text: card.sid
+                                onEditingFinished: {
+                                    var slug = Logic.slugify(text)
+                                    if (slug === "" || slug === card.sid) {
+                                        text = card.sid          // revert / normalize
+                                        return
+                                    }
+                                    if (page.idTaken(slug, card.index)) {
+                                        page.status = "error"
+                                        page.statusDetail = i18n("ID “%1” is already in use", slug)
+                                        text = card.sid
+                                        return
+                                    }
+                                    var oldId = card.sid
+                                    if (page.expandedId === oldId) page.expandedId = slug
+                                    if (page.focusId === oldId) page.focusId = slug
+                                    page.setField(card.index, "sid", slug)
+                                    text = slug
+                                    page.renameId(oldId, slug)
                                 }
                             }
                         }
