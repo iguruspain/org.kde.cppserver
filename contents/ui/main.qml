@@ -277,7 +277,7 @@ PlasmoidItem {
             }
             errorMsg = ""
             var m = Object.assign({}, runningMap)
-            m[id] = { pid: Number(kv.pid), logfile: String(kv.logfile || "") }
+            m[id] = { pid: String(kv.pid || ""), logfile: String(kv.logfile || "") }
             runningMap = m
         })
     }

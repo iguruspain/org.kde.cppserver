@@ -206,10 +206,10 @@ function parseStatusall(stdout) {
         const parts = line.trim().split(/\s+/).filter(function (p) { return p !== ""; });
         if (parts.length < 2) return;
         if (parts[1] !== "alive=1" && parts[1] !== "alive=0") return;
-        const entry = { alive: parts[1] === "alive=1", pid: 0, logfile: "" };
+        const entry = { alive: parts[1] === "alive=1", pid: "", logfile: "" };
         for (let i = 2; i < parts.length; i++) {
             if (parts[i].indexOf("pid=") === 0) {
-                entry.pid = Number(parts[i].slice(4)) || 0;
+                entry.pid = parts[i].slice(4) || "0";
             } else if (parts[i].indexOf("logfile=") === 0) {
                 entry.logfile = parts.slice(i).join(" ").slice("logfile=".length);
                 break;
