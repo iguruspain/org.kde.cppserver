@@ -274,7 +274,7 @@ KCM.SimpleKCM {
                 textFormat: Text.StyledText
                 opacity: 0.8
                 text: i18n("Placeholders in the command:<br>" +
-                           "<b>{HOST}</b> host, <b>{PORT}</b> port, <b>{CONFIG_FILE}</b> config file.<br>" +
+                           "<b>{HOST}</b> host.<br>" + "<b>{PORT}</b> port.<br>" + "<b>{CONFIG_FILE}</b> config file.<br>" +
                            "You can use <tt>~</tt> and <tt>$HOME</tt> are expanded.<br>" + "An empty value also removes its flag " +
                            "(<tt>--port {PORT}</tt> with port 0 disappears).")
             }
@@ -598,6 +598,12 @@ KCM.SimpleKCM {
                 text: page.status === "saving" ? i18n("Saving…")
                     : page.status === "error"  ? i18n("Not saved")
                     : i18n("Changes are saved automatically to %1", page.configPath)
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: page.status !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Qt.openUrlExternally("file://" + page.configPath)
+                }
             }
         }
     }

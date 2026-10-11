@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-10 22:57+0200\n"
+"POT-Creation-Date: 2026-10-11 08:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -58,7 +58,7 @@ msgid "Not found in PATH: %1"
 msgstr ""
 
 #. i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
-#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:375
+#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:404
 msgid "pid %1"
 msgstr ""
 
@@ -90,7 +90,7 @@ msgstr ""
 msgid "No servers match"
 msgstr ""
 
-#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:359
+#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:386
 #: contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr ""
@@ -103,89 +103,89 @@ msgstr ""
 msgid "Configure…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:205 contents/ui/main.qml:55
+#: contents/ui/MainPage.qml:206 contents/ui/main.qml:55
 msgid "%1 / %2 running"
 msgstr ""
 
-#: contents/ui/MainPage.qml:217
+#: contents/ui/MainPage.qml:218
 msgid "%1 binary not in PATH"
 msgid_plural "%1 binaries not in PATH"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:263
+#: contents/ui/MainPage.qml:279
 msgid "Pause live updates (to select text)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:271
+#: contents/ui/MainPage.qml:287
 msgid "Follow the end of the log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:278
+#: contents/ui/MainPage.qml:294
 msgid "Copy log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:294
+#: contents/ui/MainPage.qml:310
 msgid "Filter log lines…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:300
+#: contents/ui/MainPage.qml:316
 msgid "Interpret the filter as a regular expression"
 msgstr ""
 
-#: contents/ui/MainPage.qml:310
+#: contents/ui/MainPage.qml:335
 msgid "Log file: %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:344
+#: contents/ui/MainPage.qml:371
 msgid "(no lines match the filter)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:345
+#: contents/ui/MainPage.qml:372
 msgid "(waiting for output…)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:346
+#: contents/ui/MainPage.qml:373
 msgid "Server not running – start it from the Servers tab."
 msgstr ""
 
-#: contents/ui/MainPage.qml:360
+#: contents/ui/MainPage.qml:387
 msgid "Add servers in the widget settings."
 msgstr ""
 
-#: contents/ui/MainPage.qml:373
+#: contents/ui/MainPage.qml:402
 msgid "No server selected"
 msgstr ""
 
-#: contents/ui/MainPage.qml:376
+#: contents/ui/MainPage.qml:405
 msgid "Stopped"
 msgstr ""
 
-#: contents/ui/MainPage.qml:383
+#: contents/ui/MainPage.qml:412
 msgid "%1 error"
 msgid_plural "%1 errors"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:391
+#: contents/ui/MainPage.qml:420
 msgid "%1 warning"
 msgid_plural "%1 warnings"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:398
+#: contents/ui/MainPage.qml:427
 msgid "%1 OOM"
 msgstr ""
 
-#: contents/ui/MainPage.qml:405
+#: contents/ui/MainPage.qml:434
 msgid "max %1 t/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:412
+#: contents/ui/MainPage.qml:441
 msgid "%1 / %2 lines"
 msgstr ""
 
-#: contents/ui/MainPage.qml:419
+#: contents/ui/MainPage.qml:448
 msgid "invalid regex"
 msgstr ""
 
@@ -271,10 +271,10 @@ msgstr ""
 
 #: contents/ui/config/ConfigServers.qml:276
 msgid ""
-"Placeholders in the command:<br><b>{HOST}</b> host, <b>{PORT}</b> port, "
-"<b>{CONFIG_FILE}</b> config file.<br>You can use <tt>~</tt> and <tt>$HOME</"
-"tt> are expanded.<br>An empty value also removes its flag (<tt>--port {PORT}"
-"</tt> with port 0 disappears)."
+"Placeholders in the command:<br><b>{HOST}</b> host.<br><b>{PORT}</b> port."
+"<br><b>{CONFIG_FILE}</b> config file.<br>You can use <tt>~</tt> and "
+"<tt>$HOME</tt> are expanded.<br>An empty value also removes its flag (<tt>--"
+"port {PORT}</tt> with port 0 disappears)."
 msgstr ""
 
 #: contents/ui/config/ConfigServers.qml:288

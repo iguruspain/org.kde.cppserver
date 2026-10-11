@@ -240,8 +240,22 @@ ColumnLayout {
                 spacing: Kirigami.Units.smallSpacing
                 visible: page.backend.servers.length > 0
 
+                // Hidden measurer: sizes the combo to the longest server name.
+                Text {
+                    id: longestLabel
+                    visible: false
+                    width: 0
+                    font: logCombo.font
+                    text: page.backend.servers.map(function (s) { return s.name || s.id })
+                        .reduce(function (a, b) { return a.length >= b.length ? a : b }, "")
+                }
                 PlasmaComponents.ComboBox {
-                    Layout.fillWidth: true
+                    id: logCombo
+                    Layout.fillWidth: false
+                    Layout.preferredWidth: Math.min(
+                        Kirigami.Units.gridUnit * 12,
+                        Math.max(implicitWidth, longestLabel.width + Kirigami.Units.gridUnit * 10)
+                    )
                     model: page.backend.servers.map(function (s) { return s.name || s.id })
                     currentIndex: {
                         for (var i = 0; i < page.backend.servers.length; i++)
@@ -254,6 +268,7 @@ ColumnLayout {
                         page.backend.tailLog()
                     }
                 }
+                Item { Layout.fillWidth: true }
                 PlasmaComponents.ToolButton {
                     id: pauseBtn
                     checkable: true
@@ -301,20 +316,31 @@ ColumnLayout {
                     PlasmaComponents.ToolTip { text: i18n("Interpret the filter as a regular expression") }
                 }
             }
-            PlasmaComponents.Label {
-                id: logFileLabel
+
+            RowLayout {
                 Layout.fillWidth: true
-                font: Kirigami.Theme.smallFont
-                elide: Text.ElideLeft
-                enabled: logsTab.running && logsTab.running.logfile !== ""
-                opacity: 0.7
-                text:logsTab.running.logfile ? i18n("Log file: %1", logsTab.running.logfile) : ""
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: logFileLabel.text !== ""
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: Qt.openUrlExternally("file://" + logsTab.running.logfile)
+                Layout.leftMargin: Kirigami.Units.smallSpacing
+                Layout.rightMargin: Kirigami.Units.smallSpacing
+                Layout.bottomMargin: Kirigami.Units.smallSpacing
+                spacing: Kirigami.Units.smallSpacing
+                //visible: logsTab.logText !== ""
+
+                Item { Layout.fillWidth: true }
+                PlasmaComponents.Label {
+                    id: logFileLabel
+                    Layout.fillWidth: true
+                    font: Kirigami.Theme.smallFont
+                    elide: Text.ElideLeft
+                    opacity: 0.7 ? logsTab.logText !== "" : 0
+                    text:logsTab.running.logfile ? i18n("Log file: %1", logsTab.running.logfile) : ""
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: logFileLabel.text !== ""
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally("file://" + logsTab.running.logfile)
+                    }
                 }
+                Item { Layout.fillWidth: true }
             }
 
             Rectangle {
@@ -361,10 +387,12 @@ ColumnLayout {
                 explanation: i18n("Add servers in the widget settings.")
             }
 
+            // ═════════════════════ TAB 1 FOOTER – log stats, errors, warnings, etc. ═════════════════════
             PlasmaExtras.PlasmoidHeading {
                 Layout.fillWidth: true
                 position: PlasmaExtras.PlasmoidHeading.Footer
                 contentItem: RowLayout {
+                    Item { Layout.fillWidth: true }
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
                         elide: Text.ElideLeft
@@ -419,6 +447,7 @@ ColumnLayout {
                         color: Kirigami.Theme.negativeTextColor
                         text: i18n("invalid regex")
                     }
+                    Item { Layout.fillWidth: true }
                 }
             }
         }
