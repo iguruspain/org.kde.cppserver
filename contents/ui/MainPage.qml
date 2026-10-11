@@ -233,6 +233,13 @@ ColumnLayout {
             readonly property string logText: filtered.text
             readonly property bool filtering: filterField.text !== ""
             readonly property var stats: Logic.logStats(rawText)
+            readonly property string logHtml: logsTab.logText !== ""
+                ? Logic.highlightLog(logsTab.logText, Kirigami.Theme.negativeTextColor,
+                                     Kirigami.Theme.neutralTextColor,
+                                     filterField.text, regexBtn.checked,
+                                     Kirigami.Theme.highlightColor,
+                                     Kirigami.Theme.highlightedTextColor)
+                : ""
 
             RowLayout {
                 Layout.fillWidth: true
@@ -306,6 +313,7 @@ ColumnLayout {
 
                 PlasmaExtras.SearchField {
                     id: filterField
+                    objectName: "filterField"
                     Layout.fillWidth: true
                     placeholderText: i18n("Filter log lines…")
                 }
@@ -362,12 +370,12 @@ ColumnLayout {
                     readOnly: true
                     selectByMouse: true
                     wrapMode: TextEdit.Wrap
-                    textFormat: TextEdit.PlainText
+                    textFormat: logsTab.logHtml !== "" ? TextEdit.RichText : TextEdit.PlainText
                     font.family: "monospace"
                     font.pointSize: page.backend.logFontSize > 0 ? page.backend.logFontSize
                         : Kirigami.Theme.smallFont.pointSize
                     background: null
-                    text: logsTab.logText !== "" ? logsTab.logText
+                    text: logsTab.logHtml !== "" ? logsTab.logHtml
                         : (logsTab.filtering && logsTab.rawText !== "") ? i18n("(no lines match the filter)")
                         : logsTab.running ? i18n("(waiting for output…)")
                         : i18n("Server not running – start it from the Servers tab.")

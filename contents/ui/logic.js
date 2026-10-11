@@ -188,6 +188,97 @@ function logStats(text) {
     return { oom: oom, errors: errors, warnings: warnings, maxTps: maxTps };
 }
 
+// ── Log line highlighting ────────────────────────────────────────────────
+// All [start, end) ranges where `filter` matches `line` — same semantics as
+// filterLines: case-insensitive substring by default, regular expression
+// when useRegex. Empty filter or invalid regex -> []. Zero-length matches
+// are skipped.
+function matchRanges(line, filter, useRegex) {
+    const ranges = [];
+    const f = String(filter || "");
+    if (f === "") return ranges;
+    if (useRegex) {
+        let rx;
+        try { rx = new RegExp(f, "gi"); } catch (e) { return ranges; }
+        let m;
+        while ((m = rx.exec(line)) !== null) {
+            if (m[0] !== "") ranges.push([m.index, m.index + m[0].length]);
+            else rx.lastIndex++;
+        }
+        return ranges;
+    }
+    const lower = line.toLowerCase();
+    const needle = f.toLowerCase();
+    let i = lower.indexOf(needle);
+    while (i !== -1) {
+        ranges.push([i, i + needle.length]);
+        i = lower.indexOf(needle, i + needle.length);
+    }
+    return ranges;
+}
+
+// CSS-safe color for rich-text spans: QML stringifies semi-transparent
+// colors as "#aarrggbb", which the CSS parser may not accept — convert to
+// rgba(); "#rrggbb" and "rgba(…)" pass through unchanged.
+function colorToCss(color) {
+    const m = /^#?([0-9a-f]{8})$/i.exec(String(color || "").trim());
+    if (m) {
+        const v = Number("0x" + m[1]);
+        return "rgba(" + ((v >> 16) & 0xff) + "," + ((v >> 8) & 0xff) + "," + (v & 0xff) + ","
+            + (((v >>> 24) & 0xff) / 255).toFixed(2) + ")";
+    }
+    return String(color || "");
+}
+
+// HTML for a RichText TextArea: the lines logStats() counts (OOM/error in
+// errorColor, warnings in warningColor) get a colored <span>; when a filter
+// is active (non-empty filterText) the matching substrings additionally get
+// a matchColor background and matchTextColor text, like the native text
+// selection. Escapes & < > and joins lines with <br>, because a bare newline
+// is collapsed by the rich-text parser. Empty color args return the text
+// unchanged so callers can keep a PlainText fallback.
+function highlightLog(text, errorColor, warningColor, filterText, useRegex,
+                       matchColor, matchTextColor) {
+    const t = String(text || "");
+    if (!errorColor || !warningColor) return t;
+    const esc = function (s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    };
+    const f = String(filterText || "");
+    const matchStyle = (f !== "" && matchColor !== "")
+        ? "background-color:" + colorToCss(matchColor)
+          + (matchTextColor !== "" ? ";color:" + colorToCss(matchTextColor) : "")
+        : "";
+    const lines = t.split("\n");
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        let html = esc(l);
+        if (matchStyle !== "") {
+            const ranges = matchRanges(l, f, !!useRegex);
+            if (ranges.length > 0) {
+                html = "";
+                let pos = 0;
+                for (let j = 0; j < ranges.length; j++) {
+                    html += esc(l.slice(pos, ranges[j][0]));
+                    html += '<span style="' + matchStyle + ';">'
+                        + esc(l.slice(ranges[j][0], ranges[j][1])) + "</span>";
+                    pos = ranges[j][1];
+                }
+                html += esc(l.slice(pos));
+            }
+        }
+        let color = "";
+        if (l !== "" && !EXCEPT_RE.test(l)) {
+            if (OOM_RE.test(l) || ERROR_RE.test(l)) color = errorColor;
+            else if (WARN_RE.test(l)) color = warningColor;
+        }
+        out.push(color === "" ? html
+                               : '<span style="color:' + colorToCss(color) + ';">' + html + "</span>");
+    }
+    return out.join("<br>");
+}
+
 // ── Script output parsing ───────────────────────────────────────────────────
 // `key=value` lines.
 function parseKv(stdout) {
