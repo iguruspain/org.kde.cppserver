@@ -39,10 +39,85 @@ jobs:
       - name: Build plasmoid
         run: bash make-plasmoid.sh "org.kde.cppserver-v${{ inputs.version }}.plasmoid"
 
+      - name: Find previous tag
+        id: prev
+        run: |
+          PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          echo "prev=${PREV}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        env:
+          VERSION: ${{ inputs.version }}
+          PREV_TAG: ${{ steps.prev.outputs.prev }}
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+
+          def git(*args):
+              return subprocess.run(["git", *args], capture_output=True, text=True)
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          url = f"https://github.com/{repo}"
+          version = os.environ["VERSION"]
+          prev = os.environ.get("PREV_TAG", "")
+          head = git("rev-parse", "HEAD").stdout.strip()
+
+          if prev and git("merge-base", "--is-ancestor", prev, head).returncode == 0:
+              rev = [f"{prev}..{head}"]
+              scope = (f"### Changes since {prev} "
+                       f"([`{prev}`...`{head[:7]}`]({url}/compare/{prev}...{head[:7]}))")
+          else:
+              rev = [head]
+              scope = "### All commits (no previous release)"
+
+          lines = [
+              f"**Version:** `{version}`  ",
+              "",
+              scope,
+              "",
+          ]
+
+          total = int(git("rev-list", "--count", "--no-merges", *rev).stdout.strip() or 0)
+          out = git("log", "--no-merges",
+                    "--format=%h%x1f%H%x1f%s%x1f%b%x1f%an%x1e", *rev).stdout
+          entries = []
+          for rec in out.split("\x1e"):
+              rec = rec.strip()
+              if not rec:
+                  continue
+              p = rec.split("\x1f")
+              if len(p) < 5:
+                  continue
+              short, full, subject, body, author = (x.strip() for x in p[:5])
+              e = f"- [{short}]({url}/commit/{full}) {subject} ({author})"
+              body_lines = [l.strip() for l in body.splitlines() if l.strip()]
+              if body_lines:
+                  shown = body_lines[:6]
+                  if len(body_lines) > 6:
+                      shown.append("…")
+                  e += "\n" + "\n".join(f"  > {l}" for l in shown)
+              entries.append(e)
+          if entries:
+              lines.append("\n\n".join(entries))
+          else:
+              lines.append("No new commits in this range.")
+
+          lines += [
+              "",
+              "---",
+              "Download the `.plasmoid` file and install it with `kpackagetool6 -i <file>`.",
+          ]
+
+          with open("release_notes.md", "w", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+          echo "----- release_notes.md -----"
+          cat release_notes.md
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
           name: v${{ inputs.version }}
           files: org.kde.cppserver-v${{ inputs.version }}.plasmoid
-          generate_release_notes: true
+          body_path: release_notes.md
