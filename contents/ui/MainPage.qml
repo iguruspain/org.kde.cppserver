@@ -289,6 +289,7 @@ ColumnLayout {
                         page.backend.tailLog()
                     }
                 }
+                Item { Layout.fillWidth: true }
                 PlasmaComponents.ToolButton {
                     id: pauseBtn
                     checkable: true
