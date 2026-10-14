@@ -377,18 +377,30 @@ PlasmoidItem {
         onClicked: root.expanded = !wasExpanded
 
         Kirigami.Icon {
+            id: compactIcon
             anchors.fill: parent
             active: compactRoot.containsMouse
             source: "network-server-symbolic"
         }
 
+        // Power LED: a small circle over the glyph's lower-right slot, like a
+        // server front-panel indicator light. Breeze network-server-symbolic is a
+        // 22x22 canvas with the face at x/y 3..19 and a lower-right slot at
+        // x 14..18 / y 16..17 (SVG at
+        // /usr/share/icons/breeze/places/22/network-server-symbolic.svg).
         Rectangle {
-            visible: root.runningCount > 0
-            anchors { right: parent.right; bottom: parent.bottom; margins: 2 }
-            width: Math.max(8, parent.width * 0.28); height: width; radius: width / 2
+            id: statusLed
+            visible: root.runningCount > 0 && compactIcon.paintedWidth > 0
+            width: compactIcon.paintedWidth * 0.28
+            height: width
+            radius: width / 2
             color: Kirigami.Theme.positiveTextColor
             border.color: Kirigami.Theme.backgroundColor
             border.width: 1
+            x: compactIcon.x + (compactIcon.width - compactIcon.paintedWidth) / 2
+                + compactIcon.paintedWidth * (6 / 22) - width / 2
+            y: compactIcon.y + (compactIcon.height - compactIcon.paintedHeight) / 2
+                + compactIcon.paintedHeight * (18 / 22) - height / 2
         }
     }
 

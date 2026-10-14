@@ -600,7 +600,7 @@ KCM.SimpleKCM {
                     : i18n("Changes are saved automatically to %1", page.configPath)
                 MouseArea {
                     anchors.fill: parent
-                    enabled: page.status !== ""
+                    enabled: page.loaded
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Qt.openUrlExternally("file://" + page.configPath)
                 }

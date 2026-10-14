@@ -158,34 +158,46 @@ function filterLines(text, filter, useRegex) {
 // category wins (OOM > error > warning). glog-style level prefixes
 // ("12.34.56.789 E " / " W ", optionally with a "[pid] " in front) catch
 // llama.cpp lines that don't name the level word. Lines matching EXCEPT_RE
-// (benign messages with error-like words) are skipped entirely. maxTps is the highest
-// "N t/s" value seen (llama.cpp generation rate); 0 when none.
-// Benign lines that contain error-like words but are not real errors
-// (e.g. llama.cpp "failed to read tensor info", "tensor name 4 is too long").
+// (benign lines with error-like words, e.g. llama.cpp "failed to read tensor
+// info", "tensor name 4 is too long") are skipped entirely.
+// t/s: curTps is the last rate seen (the last "N t/s" on the line — tg_3s in
+// current llama.cpp output; 0 when none). minTps/maxTps accumulate since the
+// last MODEL_CHANGE_RE match (reset on each marker), so with no marker in
+// the tail they span the whole tail.
 const EXCEPT_RE = /failed to read tensor info|tensor name \d+ is too long/i;
 const OOM_RE   = /out of (video |host )?memory|cannot allocate|memory allocation (failed|error)|no space left on device|not enough (video |host )?memory|cudaerrormemoryallocation/i;
 const ERROR_RE = /\b(errors?|failed?|failure|fatal|aborted?|panic|exception|segfault|segmentation fault|core dumped|critical|backtrace)\b|^\s*(?:\[\d+\] )?\d+\.\d+\.\d+\.\d+ E /i;
 const WARN_RE  = /warn(ing|s|ed)?\b|deprecat|^\s*(?:\[\d+\] )?\d+\.\d+\.\d+\.\d+ W /i;
 const TPS_RE   = /([0-9]+(?:\.[0-9]+)?)\s*t\/s\b/g;
+// Lines that mark a (re)load of the model in llama.cpp logs (router/preset
+// swaps and classic single-model loads). Cumulative t/s min/max restart after
+// the last occurrence in the visible tail.
+const MODEL_CHANGE_RE = /llama_server:\s*model loaded|load_model:\s*loading model |spawning server instance with name=|ensure_model:\s*slot available|loaded \d+ model files/i;
 
 function logStats(text) {
     const lines = String(text || "").split("\n");
-    let oom = 0, errors = 0, warnings = 0, maxTps = 0;
+    let oom = 0, errors = 0, warnings = 0;
+    let curTps = 0, minTps = 0, maxTps = 0;
     for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
         if (l === "") continue;
+        if (MODEL_CHANGE_RE.test(l)) { minTps = 0; maxTps = 0; }
         if (EXCEPT_RE.test(l)) continue;
         if (OOM_RE.test(l)) oom++;
         else if (ERROR_RE.test(l)) errors++;
         else if (WARN_RE.test(l)) warnings++;
+        // Last "N t/s" on the line (tg_3s in current llama.cpp output).
+        let value = 0;
         TPS_RE.lastIndex = 0;
         let m;
-        while ((m = TPS_RE.exec(l)) !== null) {
-            const v = Number(m[1]);
-            if (v > maxTps) maxTps = v;
+        while ((m = TPS_RE.exec(l)) !== null) value = Number(m[1]);
+        if (value > 0) {
+            curTps = value;
+            if (minTps === 0 || value < minTps) minTps = value;
+            if (value > maxTps) maxTps = value;
         }
     }
-    return { oom: oom, errors: errors, warnings: warnings, maxTps: maxTps };
+    return { oom: oom, errors: errors, warnings: warnings, curTps: curTps, minTps: minTps, maxTps: maxTps };
 }
 
 // ── Log line highlighting ────────────────────────────────────────────────

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-11 20:06+0200\n"
+"POT-Creation-Date: 2026-10-14 16:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -57,8 +57,7 @@ msgstr ""
 msgid "Not found in PATH: %1"
 msgstr ""
 
-#. i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
-#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:411
+#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:420
 msgid "pid %1"
 msgstr ""
 
@@ -90,7 +89,7 @@ msgstr ""
 msgid "No servers match"
 msgstr ""
 
-#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:393
+#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:405
 #: contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr ""
@@ -113,79 +112,83 @@ msgid_plural "%1 binaries not in PATH"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:286
+#: contents/ui/MainPage.qml:239
+msgid "Errors: %1"
+msgstr ""
+
+#: contents/ui/MainPage.qml:240
+msgid "Warnings: %1"
+msgstr ""
+
+#: contents/ui/MainPage.qml:241
+msgid "Out of memory: %1"
+msgstr ""
+
+#: contents/ui/MainPage.qml:243
+msgid "Max speed: %1 t/s"
+msgstr ""
+
+#: contents/ui/MainPage.qml:244
+msgid "Min speed: %1 t/s"
+msgstr ""
+
+#: contents/ui/MainPage.qml:298
 msgid "Pause live updates (to select text)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:294
+#: contents/ui/MainPage.qml:306
 msgid "Follow the end of the log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:301
+#: contents/ui/MainPage.qml:313
 msgid "Copy log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:318
+#: contents/ui/MainPage.qml:330
 msgid "Filter log lines…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:324
+#: contents/ui/MainPage.qml:336
 msgid "Interpret the filter as a regular expression"
 msgstr ""
 
-#: contents/ui/MainPage.qml:343
+#: contents/ui/MainPage.qml:355
 msgid "Log file: %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:378
+#: contents/ui/MainPage.qml:390
 msgid "(no lines match the filter)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:379
+#: contents/ui/MainPage.qml:391
 msgid "(waiting for output…)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:380
+#: contents/ui/MainPage.qml:392
 msgid "Server not running – start it from the Servers tab."
 msgstr ""
 
-#: contents/ui/MainPage.qml:394
+#: contents/ui/MainPage.qml:406
 msgid "Add servers in the widget settings."
 msgstr ""
 
-#: contents/ui/MainPage.qml:409
+#: contents/ui/MainPage.qml:419
 msgid "No server selected"
 msgstr ""
 
-#: contents/ui/MainPage.qml:412
+#: contents/ui/MainPage.qml:421
 msgid "Stopped"
 msgstr ""
 
-#: contents/ui/MainPage.qml:419
-msgid "%1 error"
-msgid_plural "%1 errors"
-msgstr[0] ""
-msgstr[1] ""
-
 #: contents/ui/MainPage.qml:427
-msgid "%1 warning"
-msgid_plural "%1 warnings"
-msgstr[0] ""
-msgstr[1] ""
-
-#: contents/ui/MainPage.qml:434
-msgid "%1 OOM"
+msgid "%1 t/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:441
-msgid "max %1 t/s"
-msgstr ""
-
-#: contents/ui/MainPage.qml:448
+#: contents/ui/MainPage.qml:433
 msgid "%1 / %2 lines"
 msgstr ""
 
-#: contents/ui/MainPage.qml:455
+#: contents/ui/MainPage.qml:439
 msgid "invalid regex"
 msgstr ""
 
@@ -226,13 +229,13 @@ msgid "Show out-of-memory count"
 msgstr ""
 
 #: contents/ui/config/ConfigLogs.qml:74
-msgid "Show max generation speed (t/s, llama.cpp only)"
+msgid "Show generation speed (t/s, llama.cpp only)"
 msgstr ""
 
 #: contents/ui/config/ConfigLogs.qml:83
 msgid ""
 "Counts are computed from the log text and work with any server. The speed (t/"
-"s) is only printed by llama.cpp."
+"s) is only printed by llama.cpp; its min/max restart when the model changes."
 msgstr ""
 
 #: contents/ui/config/ConfigServers.qml:87
@@ -391,18 +394,18 @@ msgstr ""
 msgid "Stop all"
 msgstr ""
 
-#: contents/ui/main.qml:204
+#: contents/ui/main.qml:205
 msgid "Could not read %1"
 msgstr ""
 
-#: contents/ui/main.qml:209
+#: contents/ui/main.qml:210
 msgid "%1 is not valid JSON (expected a list of servers)"
 msgstr ""
 
-#: contents/ui/main.qml:272
+#: contents/ui/main.qml:273
 msgid "Empty command for %1"
 msgstr ""
 
-#: contents/ui/main.qml:282
+#: contents/ui/main.qml:283
 msgid "Failed to start %1"
 msgstr ""

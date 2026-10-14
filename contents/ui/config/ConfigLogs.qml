@@ -71,7 +71,7 @@ KCM.SimpleKCM {
             onToggled: Plasmoid.configuration.logShowOom = checked
         }
         QQC2.CheckBox {
-            text: i18n("Show max generation speed (t/s, llama.cpp only)")
+            text: i18n("Show generation speed (t/s, llama.cpp only)")
             checked: Plasmoid.configuration.logShowTps
             onToggled: Plasmoid.configuration.logShowTps = checked
         }
@@ -80,7 +80,7 @@ KCM.SimpleKCM {
             Layout.fillWidth: true
             opacity: 0.6
             wrapMode: Text.Wrap
-            text: i18n("Counts are computed from the log text and work with any server. The speed (t/s) is only printed by llama.cpp.")
+            text: i18n("Counts are computed from the log text and work with any server. The speed (t/s) is only printed by llama.cpp; its min/max restart when the model changes.")
         }
     }
 }

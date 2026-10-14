@@ -233,6 +233,20 @@ ColumnLayout {
             readonly property string logText: filtered.text
             readonly property bool filtering: filterField.text !== ""
             readonly property var stats: Logic.logStats(rawText)
+            readonly property string statsTooltip: {
+                var st = logsTab.stats
+                var parts = []
+                // Rich text (textFormat on the ToolTip): each stat line is bold
+                // and keeps the color of its old inline chip.
+                if (page.backend.showStatWarnings) parts.push('<span style="color: ' + Kirigami.Theme.neutralTextColor + '; font-weight: bold;">' + i18n("Warnings: %1", st.warnings) + '</span>')
+                if (page.backend.showStatErrors) parts.push('<span style="color: ' + Kirigami.Theme.negativeTextColor + '; font-weight: bold;">' + i18n("Errors: %1", st.errors) + '</span>')
+                if (page.backend.showStatOom) parts.push('<span style="color: ' + Kirigami.Theme.negativeTextColor + '; font-weight: bold;">' + i18n("Out of memory: %1", st.oom) + '</span>')
+                if (page.backend.showStatTps && st.maxTps > 0) {
+                    parts.push('<b>' + i18n("Max speed: %1 t/s", st.maxTps.toFixed(2)) + '</b>')
+                    parts.push('<b>' + i18n("Min speed: %1 t/s", st.minTps.toFixed(2)) + '</b>')
+                }
+                return parts.join("<br>")
+            }
             readonly property string logHtml: logsTab.logText !== ""
                 ? Logic.highlightLog(logsTab.logText, Kirigami.Theme.negativeTextColor,
                                      Kirigami.Theme.neutralTextColor,
@@ -275,7 +289,6 @@ ColumnLayout {
                         page.backend.tailLog()
                     }
                 }
-                Item { Layout.fillWidth: true }
                 PlasmaComponents.ToolButton {
                     id: pauseBtn
                     checkable: true
@@ -403,58 +416,39 @@ ColumnLayout {
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
                         elide: Text.ElideLeft
-                        //font: Kirigami.Theme.smallFont
                         font.bold: true
                         opacity: 0.7
                         text: !logsTab.entry ? i18n("No server selected")
-                            //: logsTab.running ? i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
                             : logsTab.running ? i18n("pid %1", logsTab.running.pid)
                             : i18n("Stopped")
                     }
                     PlasmaComponents.Label {
-                        visible: page.backend.showStatErrors && logsTab.stats.errors > 0
-                        //font: Kirigami.Theme.smallFont
-                        font.bold: true
-                        color: Kirigami.Theme.negativeTextColor
-                        text: i18np("%1 error", "%1 errors", logsTab.stats.errors)
-                    }
-                    PlasmaComponents.Label {
-                        visible: page.backend.showStatWarnings && logsTab.stats.warnings > 0
-                        //font: Kirigami.Theme.smallFont
-                        font.bold: true
-                        color: Kirigami.Theme.neutralTextColor
-                        opacity: 0.7
-                        text: i18np("%1 warning", "%1 warnings", logsTab.stats.warnings)
-                    }
-                    PlasmaComponents.Label {
-                        visible: page.backend.showStatOom && logsTab.stats.oom > 0
-                        //font: Kirigami.Theme.smallFont
-                        font.bold: true
-                        color: Kirigami.Theme.negativeTextColor
-                        text: i18n("%1 OOM", logsTab.stats.oom)
-                    }
-                    PlasmaComponents.Label {
-                        visible: page.backend.showStatTps && logsTab.stats.maxTps > 0
-                        //font: Kirigami.Theme.smallFont
+                        visible: page.backend.showStatTps && logsTab.stats.curTps > 0
                         font.bold: true
                         opacity: 0.7
-                        text: i18n("max %1 t/s", logsTab.stats.maxTps.toFixed(2))
+                        text: i18n("%1 t/s", logsTab.stats.curTps.toFixed(2))
                     }
                     PlasmaComponents.Label {
                         visible: logsTab.filtering && logsTab.filtered.ok
-                        //font: Kirigami.Theme.smallFont
                         font.bold: true
                         opacity: 0.7
                         text: i18n("%1 / %2 lines", logsTab.filtered.matched, logsTab.filtered.total)
                     }
                     PlasmaComponents.Label {
                         visible: logsTab.filtering && !logsTab.filtered.ok
-                        //font: Kirigami.Theme.smallFont
                         font.bold: true
                         color: Kirigami.Theme.negativeTextColor
                         text: i18n("invalid regex")
                     }
-                    Item { Layout.fillWidth: true }
+                    PlasmaComponents.ToolButton {
+                        visible: logsTab.statsTooltip !== ""
+                        icon.name: "documentinfo"
+                        display: QQC2.AbstractButton.IconOnly
+                        PlasmaComponents.ToolTip {
+                            text: logsTab.statsTooltip
+                            textFormat: Text.RichText
+                        }
+                    }
                 }
             }
         }
