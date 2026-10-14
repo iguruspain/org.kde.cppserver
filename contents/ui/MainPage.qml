@@ -372,8 +372,7 @@ ColumnLayout {
                     wrapMode: TextEdit.Wrap
                     textFormat: logsTab.logHtml !== "" ? TextEdit.RichText : TextEdit.PlainText
                     font.family: "monospace"
-                    font.pointSize: page.backend.logFontSize > 0 ? page.backend.logFontSize
-                        : Kirigami.Theme.smallFont.pointSize
+                    font.pointSize: page.backend.logFontPointSize
                     background: null
                     text: logsTab.logHtml !== "" ? logsTab.logHtml
                         : (logsTab.filtering && logsTab.rawText !== "") ? i18n("(no lines match the filter)")

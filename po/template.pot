@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-10-11 08:33+0200\n"
+"POT-Creation-Date: 2026-10-11 20:06+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -58,7 +58,7 @@ msgid "Not found in PATH: %1"
 msgstr ""
 
 #. i18n("pid %1 — %2", logsTab.running.pid, logsTab.running.logfile)
-#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:404
+#: contents/ui/MainPage.qml:142 contents/ui/MainPage.qml:411
 msgid "pid %1"
 msgstr ""
 
@@ -90,7 +90,7 @@ msgstr ""
 msgid "No servers match"
 msgstr ""
 
-#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:386
+#: contents/ui/MainPage.qml:184 contents/ui/MainPage.qml:393
 #: contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr ""
@@ -113,79 +113,79 @@ msgid_plural "%1 binaries not in PATH"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:279
+#: contents/ui/MainPage.qml:286
 msgid "Pause live updates (to select text)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:287
+#: contents/ui/MainPage.qml:294
 msgid "Follow the end of the log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:294
+#: contents/ui/MainPage.qml:301
 msgid "Copy log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:310
+#: contents/ui/MainPage.qml:318
 msgid "Filter log lines…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:316
+#: contents/ui/MainPage.qml:324
 msgid "Interpret the filter as a regular expression"
 msgstr ""
 
-#: contents/ui/MainPage.qml:335
+#: contents/ui/MainPage.qml:343
 msgid "Log file: %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:371
+#: contents/ui/MainPage.qml:378
 msgid "(no lines match the filter)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:372
+#: contents/ui/MainPage.qml:379
 msgid "(waiting for output…)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:373
+#: contents/ui/MainPage.qml:380
 msgid "Server not running – start it from the Servers tab."
 msgstr ""
 
-#: contents/ui/MainPage.qml:387
+#: contents/ui/MainPage.qml:394
 msgid "Add servers in the widget settings."
 msgstr ""
 
-#: contents/ui/MainPage.qml:402
+#: contents/ui/MainPage.qml:409
 msgid "No server selected"
 msgstr ""
 
-#: contents/ui/MainPage.qml:405
+#: contents/ui/MainPage.qml:412
 msgid "Stopped"
 msgstr ""
 
-#: contents/ui/MainPage.qml:412
+#: contents/ui/MainPage.qml:419
 msgid "%1 error"
 msgid_plural "%1 errors"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:420
+#: contents/ui/MainPage.qml:427
 msgid "%1 warning"
 msgid_plural "%1 warnings"
 msgstr[0] ""
 msgstr[1] ""
 
-#: contents/ui/MainPage.qml:427
+#: contents/ui/MainPage.qml:434
 msgid "%1 OOM"
 msgstr ""
 
-#: contents/ui/MainPage.qml:434
+#: contents/ui/MainPage.qml:441
 msgid "max %1 t/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:441
+#: contents/ui/MainPage.qml:448
 msgid "%1 / %2 lines"
 msgstr ""
 
-#: contents/ui/MainPage.qml:448
+#: contents/ui/MainPage.qml:455
 msgid "invalid regex"
 msgstr ""
 
@@ -197,31 +197,39 @@ msgstr ""
 msgid "Font"
 msgstr ""
 
-#: contents/ui/config/ConfigLogs.qml:38
-msgid "Log font size (0 = theme default)"
-msgstr ""
-
-#: contents/ui/config/ConfigLogs.qml:44
-msgid "Statistics"
+#: contents/ui/config/ConfigLogs.qml:28
+msgid "Use system font size for logs"
 msgstr ""
 
 #: contents/ui/config/ConfigLogs.qml:48
+msgid "Log font size follows the system default"
+msgstr ""
+
+#: contents/ui/config/ConfigLogs.qml:49
+msgid "Log font size (points)"
+msgstr ""
+
+#: contents/ui/config/ConfigLogs.qml:55
+msgid "Statistics"
+msgstr ""
+
+#: contents/ui/config/ConfigLogs.qml:59
 msgid "Show error count"
 msgstr ""
 
-#: contents/ui/config/ConfigLogs.qml:53
+#: contents/ui/config/ConfigLogs.qml:64
 msgid "Show warning count"
 msgstr ""
 
-#: contents/ui/config/ConfigLogs.qml:58
+#: contents/ui/config/ConfigLogs.qml:69
 msgid "Show out-of-memory count"
 msgstr ""
 
-#: contents/ui/config/ConfigLogs.qml:63
+#: contents/ui/config/ConfigLogs.qml:74
 msgid "Show max generation speed (t/s, llama.cpp only)"
 msgstr ""
 
-#: contents/ui/config/ConfigLogs.qml:72
+#: contents/ui/config/ConfigLogs.qml:83
 msgid ""
 "Counts are computed from the log text and work with any server. The speed (t/"
 "s) is only printed by llama.cpp."
@@ -383,18 +391,18 @@ msgstr ""
 msgid "Stop all"
 msgstr ""
 
-#: contents/ui/main.qml:196
+#: contents/ui/main.qml:204
 msgid "Could not read %1"
 msgstr ""
 
-#: contents/ui/main.qml:201
+#: contents/ui/main.qml:209
 msgid "%1 is not valid JSON (expected a list of servers)"
 msgstr ""
 
-#: contents/ui/main.qml:264
+#: contents/ui/main.qml:272
 msgid "Empty command for %1"
 msgstr ""
 
-#: contents/ui/main.qml:274
+#: contents/ui/main.qml:282
 msgid "Failed to start %1"
 msgstr ""

@@ -13,6 +13,9 @@
         <entry name="logFontSize" type="Int">
             <default>0</default>
         </entry>
+        <entry name="logFontAuto" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="logShowErrors" type="Bool">
             <default>true</default>
         </entry>

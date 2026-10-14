@@ -24,18 +24,29 @@ KCM.SimpleKCM {
             Kirigami.FormData.isSection: true
             Kirigami.FormData.label: i18n("Font")
         }
+        QQC2.CheckBox {
+            text: i18n("Use system font size for logs")
+            checked: Plasmoid.configuration.logFontAuto
+            onToggled: Plasmoid.configuration.logFontAuto = checked
+        }
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
             Layout.preferredWidth: Kirigami.Units.gridUnit * 32
 
             QQC2.SpinBox {
-                from: 0
+                from: 1
                 to: 24
                 value: Plasmoid.configuration.logFontSize
                 onValueChanged: Plasmoid.configuration.logFontSize = value
+                enabled: !Plasmoid.configuration.logFontAuto
             }
             QQC2.Label {
-                text: i18n("Log font size (0 = theme default)")
+                width: Layout.preferredWidth
+                wrapMode: Text.Wrap
+                verticalAlignment: Text.AlignVCenter
+                text: Plasmoid.configuration.logFontAuto
+                    ? i18n("Log font size follows the system default")
+                    : i18n("Log font size (points)")
             }
         }
 

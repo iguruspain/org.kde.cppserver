@@ -74,6 +74,15 @@ PlasmoidItem {
     // Written by config/ConfigLogs.qml; the defensive coercions make a missing
     // key behave as the main.xml default.
     readonly property int logFontSize: Number(Plasmoid.configuration.logFontSize) || 0
+    readonly property bool logFontAuto: Plasmoid.configuration.logFontAuto !== false
+    // When auto is on the SpinBox value is ignored and the log follows the
+    // desktop theme. Falls back to the theme font if auto is off but no value
+    // was stored yet (older config).
+    readonly property real logFontPointSize: logFontAuto
+        ? Kirigami.Theme.smallFont.pointSize
+        : (Number(Plasmoid.configuration.logFontSize) > 0
+            ? Number(Plasmoid.configuration.logFontSize)
+            : Kirigami.Theme.smallFont.pointSize)
     readonly property bool showStatErrors: Plasmoid.configuration.logShowErrors !== false
     readonly property bool showStatWarnings: Plasmoid.configuration.logShowWarnings !== false
     readonly property bool showStatOom: Plasmoid.configuration.logShowOom !== false
