@@ -52,7 +52,7 @@ PlasmoidItem {
     toolTipMainText: i18n("cpp servers")
     toolTipSubText: allServers.length === 0
                     ? i18n("No servers configured")
-                    : i18n("%1 / %2 running", runningCount, allServers.length)
+                    : i18n("%1 / %2 running", runningCount, servers.length)
 
     // ── State ──────────────────────────────────────────────────────────────
     property string homeDir: ""
