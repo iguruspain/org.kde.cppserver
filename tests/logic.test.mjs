@@ -2,7 +2,7 @@
 // tab. Fixtures mirror the line shapes of a live llama.cpp (print_timing
 // with right-aligned numeric columns, speculative decoding included: the
 // eval line counts 616 draft tokens while n_gen accepted only 366) and a
-// strata /metrics reply. Run: node --test tests/
+// strata /metrics reply. Run: node --test tests/logic.test.mjs
 //
 // These encode the invariants the UI consumes and where real regressions
 // bit: rows born at "processing task" (live stream), tg_3s live vs final

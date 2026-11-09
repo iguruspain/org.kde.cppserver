@@ -35,7 +35,7 @@ Run from repo root. No sudo, ever (scripts refuse root).
 bash install.sh [--no-restart]        # user-level install: translation build + clean reinstall via kpackagetool6 + qmlcache wipe + plasmashell restart
 bash uninstall.sh [--no-restart]      # removes applet; deliberately leaves running servers, logs, ~/.config/cppserver/ untouched
 bash make-plasmoid.sh [out.plasmoid]  # zip-based packaging → org.kde.cppserver.plasmoid (requires zip; no plasmoidpackage)
-node --test tests/                    # logic.js regression suite (pure helpers; no Plasma needed)
+node --test tests/logic.test.mjs     # logic.js regression suite (pure helpers; no Plasma needed)
 plasmoidviewer -a .                   # dev: preview without install or restart
 LANGUAGE=es plasmoidviewer -a .       # test translations
 ```
@@ -64,7 +64,7 @@ bash translate/build.sh               # msgfmt → contents/locale/... + rewrite
 
 ## Testing & QA
 
-**`tests/logic.test.mjs` covers the pure half of the Stats tab** (`logic.js`) with `node --test tests/` — zero deps, node ≥18. `tests/load-logic.mjs` loads the `.pragma library` by stripping the pragma and evaluating it in a function scope, then asserts the exported surface (which keeps `logic.js` dependency-free — no `Qt.*` at load time). Fixtures are verbatim live-log lines (print_timing aligned columns, speculative decoding) and a strata `/metrics` payload; new Stats regressions MUST add a case there. No lint configs exist (no meson/pyproject/qmllint config); the only workflow is `.github/workflows/release.yml` (release automation, not CI checks). The rest of verification is manual:
+**`tests/logic.test.mjs` covers the pure half of the Stats tab** (`logic.js`) with `node --test tests/logic.test.mjs` — zero deps, node ≥18. `tests/load-logic.mjs` loads the `.pragma library` by stripping the pragma and evaluating it in a function scope, then asserts the exported surface (which keeps `logic.js` dependency-free — no `Qt.*` at load time). Fixtures are verbatim live-log lines (print_timing aligned columns, speculative decoding) and a strata `/metrics` payload; new Stats regressions MUST add a case there. No lint configs exist (no meson/pyproject/qmllint config); the only workflow is `.github/workflows/release.yml` (release automation, not CI checks). The rest of verification is manual:
 
 - `plasmoidviewer -a .` for UI iteration (no restart); `bash install.sh` for real-environment checks.
 - Shell backend can be exercised directly: `bash contents/scripts/cppserverctl.sh <subcommand> [args]` — output is `key=value`, so it's grep/diff-able.

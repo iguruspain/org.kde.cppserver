@@ -23,7 +23,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zip gettext python3
 
       - name: Run logic tests
-        run: node --test tests/
+        # explicit file: `node --test tests/` treats the dir as a module on Node 22
+        run: node --test tests/logic.test.mjs
 
       - name: Set version in metadata.json
         run: |
