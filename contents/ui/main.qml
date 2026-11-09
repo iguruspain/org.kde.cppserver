@@ -72,6 +72,7 @@ PlasmoidItem {
     property var statsMap: ({})          // id -> { ep, kind, err, health, body, at }
     property var statsTally: ({})        // id -> "model (vX)" (generic /health servers)
     property var gpuInfo: ({})           // parseGpu(): per-pid VRAM + machine totals
+    property var gpuHist: ({})           // pushHist(): rolling ~60-sample machine history
 
     // Log view preferences (per-instance KConfig, see contents/config/main.xml).
     // Written by config/ConfigLogs.qml; the defensive coercions make a missing
@@ -384,10 +385,13 @@ PlasmoidItem {
                 applyProbe(id, ep, code, out, isLlama)
             })
         })
-        // one machine snapshot per tick: nvidia-smi (per-pid VRAM, GPU totals)
-        // + /proc (RAM, CPU%) — lets the rings work even without strata
+        // one machine snapshot per tick: nvidia-smi (per-pid VRAM, GPU totals,
+        // names) + /proc + /sys (RAM, CPU%, cores/threads, disk) — the whole
+        // machine block works with no server reporting anything
         run(Logic.scriptCmd() + " gpu", function (code, out) {
-            gpuInfo = code === 0 ? Logic.parseGpu(out) : {}
+            var g = code === 0 ? Logic.parseGpu(out) : {}
+            gpuInfo = g
+            if (code === 0) gpuHist = Logic.pushHist(gpuHist, g, 60)
         })
         // merge, never wipe: a slow probe replies after this tick, and wiping
         // here loses its "metrics" state → the endpoint chain would restart

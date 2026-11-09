@@ -400,15 +400,20 @@ function parseGpu(text) {
     const g = {
         procs: {},
         gpuUsedMib: -1, gpuTotalMib: -1, gpuUtil: -1, gpuTemp: -1, gpuPower: -1,
+        gpuPowerLimit: -1,
         ramUsedMib: -1, ramTotalMib: -1, cpuPct: -1,
-        cpuCores: -1, cpuThreads: -1
+        cpuCores: -1, cpuThreads: -1,
+        diskReadMBs: -1, diskWriteMBs: -1,
+        gpuName: "", cpuName: ""
     };
     const keys = {
         gpuused: "gpuUsedMib", gputotal: "gpuTotalMib", gpuutil: "gpuUtil",
-        gputemp: "gpuTemp", gpupow: "gpuPower",
+        gputemp: "gpuTemp", gpupow: "gpuPower", gpulimit: "gpuPowerLimit",
         ramused: "ramUsedMib", ramtotal: "ramTotalMib", cpu: "cpuPct",
-        cores: "cpuCores", threads: "cpuThreads"
+        cores: "cpuCores", threads: "cpuThreads",
+        diskread: "diskReadMBs", diskwrite: "diskWriteMBs"
     };
+    const strs = { gpuname: "gpuName", cpuname: "cpuName" };
     String(text || "").split("\n").forEach(function (line) {
         const eq = line.indexOf("=");
         if (eq < 0) return;
@@ -418,12 +423,45 @@ function parseGpu(text) {
             const c = v.split(":");
             const pid = c[0], mib = Number(c[1]);
             if (pid && isFinite(mib)) g.procs[pid] = mib;
+        } else if (strs[k] !== undefined) {
+            if (v) g[strs[k]] = v;
         } else if (keys[k] !== undefined) {
             const n = Number(v);
             if (isFinite(n)) g[keys[k]] = n;
         }
     });
     return g;
+}
+
+// Ring readout is narrow: drop the vendor prefix nvidia-smi puts on nearly
+// every card — the tail ("RTX 3090", "RX 7900 XTX", "TITAN RTX") is what
+// actually identifies it. Unknown vendors pass through untouched.
+function gpuReadout(name) {
+    const n = String(name || "").trim();
+    const m = n.replace(/^(NVIDIA|AMD)\s+/i, "");
+    return m.replace(/^Geforce\s+/i, "").replace(/^Radeon\s+(HD\s+)?/i, "") || n;
+}
+
+// Rolling machine history for the ring/tile sparklines: one sample per gpu
+// poll (the plasmoid keeps its own ~1-minute window; no server is asked for
+// history). Output keys match what the UI consumed before so they are
+// swappable; series that a poll cannot supply keep their previous array.
+function pushHist(prev, g, cap) {
+    const map = { cpu: "cpuPct", gpu_util: "gpuUtil", gpu_temp: "gpuTemp",
+                  gpu_power: "gpuPower", ram_used: "ramUsedMib",
+                  gpu_mem_used: "gpuUsedMib", disk_read_mb: "diskReadMBs" };
+    const out = {};
+    Object.keys(map).forEach(function (k) {
+        const old = (prev && Array.isArray(prev[k])) ? prev[k] : [];
+        const v = g ? g[map[k]] : undefined;
+        if (typeof v === "number" && v >= 0) {
+            old.push(v);
+            out[k] = old.length > cap ? old.slice(old.length - cap) : old;
+        } else {
+            out[k] = old;
+        }
+    });
+    return out;
 }
 
 // Normalize one polled server into what the Stats tab renders. Unknown

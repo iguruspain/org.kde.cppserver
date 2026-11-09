@@ -505,43 +505,35 @@ ColumnLayout {
                     })
                     return out
                 }
-                // Machine hardware: the `gpu` subcommand (nvidia-smi + /proc)
-                // is the base — it works for llama-only setups too. Strata's
-                // host counters then fill what nvidia-smi can't (power limit,
-                // PCIe, disk, sparkline history, names). procs maps pid->MiB
-                // and lets the VRAM ring attribute usage to each server.
+                // Machine block (rings + hardware tiles): every value comes
+                // from the system — the `gpu` subcommand (nvidia-smi names +
+                // totals, /proc RAM/CPU%/disk, /sys cores/threads) — and the
+                // sparkline history is the plasmoid's own rolling samples
+                // (gpuHist). No server is consulted for this block; procs
+                // maps pid->MiB so the VRAM ring attributes each slice.
                 readonly property var hw: {
                     var g = page.backend.gpuInfo || {}
-                    var st = null
-                    var rs = statsTab.rows
-                    for (var i = 0; i < rs.length; i++) {
-                        if (rs[i].st && rs[i].st.kind === "strata") { st = rs[i].st; break }
-                    }
                     var procs = g.procs || {}
-                    if (!st && !(g.gpuTotalMib > 0) && !(g.ramTotalMib > 0) && Object.keys(procs).length === 0)
+                    if (!(g.ramTotalMib > 0) && !(g.gpuTotalMib > 0) && Object.keys(procs).length === 0)
                         return null
-                    var pick = function (a, b) {
-                        return (a !== undefined && a >= 0) ? a : (b !== undefined ? b : -1)
-                    }
+                    var d = function (v) { return v !== undefined ? v : -1 }
                     return {
-                        vramUsedMib: pick(g.gpuUsedMib, st ? st.vramUsedMib : -1),
-                        vramTotalMib: pick(g.gpuTotalMib, st ? st.vramTotalMib : -1),
-                        gpuUtil: pick(g.gpuUtil, st ? st.gpuUtil : -1),
-                        gpuTemp: pick(g.gpuTemp, st ? st.gpuTemp : -1),
-                        gpuPower: pick(g.gpuPower, st ? st.gpuPower : -1),
-                        ramUsedMib: pick(g.ramUsedMib, st ? st.ramUsedMib : -1),
-                        ramTotalMib: pick(g.ramTotalMib, st ? st.ramTotalMib : -1),
-                        cpuPct: pick(g.cpuPct, st ? st.cpuPct : -1),
+                        vramUsedMib: d(g.gpuUsedMib),
+                        vramTotalMib: d(g.gpuTotalMib),
+                        gpuUtil: d(g.gpuUtil),
+                        gpuTemp: d(g.gpuTemp),
+                        gpuPower: d(g.gpuPower),
+                        powerLimit: d(g.gpuPowerLimit),
+                        ramUsedMib: d(g.ramUsedMib),
+                        ramTotalMib: d(g.ramTotalMib),
+                        cpuPct: d(g.cpuPct),
+                        diskRead: d(g.diskReadMBs),
                         procs: procs,
-                        powerLimit: st ? st.powerLimit : -1,
-                        diskRead: st ? st.diskRead : -1,
-                        gpuName: st ? st.gpuName : "",
-                        cpuName: st ? st.cpuName : "",
-                        cores: st && st.cores > 0 ? st.cores : (g.cpuCores > 0 ? g.cpuCores : 0),
-                        threads: st && st.threads > 0 ? st.threads : (g.cpuThreads > 0 ? g.cpuThreads : 0),
-                        pcie: st ? st.pcie : "",
-                        meanTps: st ? st.meanTps : -1,
-                        hist: st ? st.hist : {}
+                        gpuName: g.gpuName || "",
+                        cpuName: g.cpuName || "",
+                        cores: g.cpuCores > 0 ? g.cpuCores : 0,
+                        threads: g.cpuThreads > 0 ? g.cpuThreads : 0,
+                        hist: page.backend.gpuHist || {}
                     }
                 }
 
@@ -678,27 +670,28 @@ ColumnLayout {
 
                 function fmt1(v) { return (Math.round(v * 10) / 10).toFixed(1) }
 
-                // KPI tiles: Speed for every server kind; the hardware tiles
-                // (and their sparklines, from strata's own history buffer)
-                // only exist when a strata server reports them.
+                // KPI tiles: Speed comes from the server rows (strata
+                // metrics / llama log); the hardware tiles and all
+                // sparklines come from the system gpu poll (hw.hist).
                 function buildTiles() {
                     var out = []
                     var cfg = page.backend
                     var hw = statsTab.hw
                     if (cfg.statShowTps && statsTab.rows.length > 0) {
-                        var cur = -1, mean = -1
+                        var cur = -1, mean = -1, tokSpark = []
                         statsTab.rows.forEach(function (r) {
                             if (!r.st) return
                             if (r.st.active && r.st.tps > cur) cur = r.st.tps
                             if (r.st.meanTps > mean) mean = r.st.meanTps
+                            if (!tokSpark.length && r.st.kind === "strata" && r.st.hist)
+                                tokSpark = r.st.hist.tok_s || []
                         })
-                        if (hw && hw.meanTps > mean) mean = hw.meanTps
                         if (cur >= 0 || mean >= 0) {
                             out.push({ label: i18n("Speed"),
                                        value: statsTab.fmt1(cur >= 0 ? cur : Math.max(0, mean)),
                                        unit: " tok/s",
                                        sub: mean >= 0 ? i18n("mean %1 tok/s", statsTab.fmt1(mean)) : "",
-                                       spark: hw ? (hw.hist.tok_s || []) : [],
+                                       spark: tokSpark,
                                        tint: Kirigami.Theme.positiveTextColor })
                         }
                     }
@@ -766,16 +759,15 @@ ColumnLayout {
                         spacing: Kirigami.Units.smallSpacing
 
                         // ── machine rings (the headline block: no title) ──
-                        // machine-wide counters from the `gpu` poll
-                        // (nvidia-smi + /proc) enriched by strata's own
-                        // history. Each server's context ring lives inside
-                        // its card. Amber → red past the thresholds.
+                        // machine-wide counters from the `gpu` poll (nvidia-smi
+                        // + /proc + /sys) plus the plasmoid's own rolling
+                        // history for the sparklines. Each server's context
+                        // ring lives inside its card. Amber → red past the
+                        // thresholds. Column count adapts to the popup width;
+                        // fillWidth stretches the rings to occupy it fully,
+                        // and the readouts wrap inside their cell.
                         GridLayout {
                             Layout.fillWidth: true
-                            // never more columns than rings: the spare ones
-                            // would eat the width and leave the block hugging
-                            // the left edge; fillWidth on each ring stretches
-                            // the used columns across the whole popup
                             columns: Math.max(1, Math.min(4, Math.floor(
                                 (statsTab.width - 24) /
                                 (Kirigami.Units.gridUnit * 3.4 + Kirigami.Units.largeSpacing))))
@@ -783,7 +775,7 @@ ColumnLayout {
                             rowSpacing: Kirigami.Units.smallSpacing
                             visible: statsTab.hw !== null
 
-                            // machine-wide rings (strata host counters)
+                            // machine-wide rings (system counters)
                             GaugeRing {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
@@ -800,18 +792,16 @@ ColumnLayout {
                             }
                             GaugeRing {
                                 Layout.fillWidth: true
-
                                 Layout.alignment: Qt.AlignTop
                                 visible: page.backend.statShowHardware && statsTab.hw !== null
                                          && statsTab.hw.gpuUtil >= 0
                                 name: i18n("GPU")
                                 frac: statsTab.hw ? Math.max(0, statsTab.hw.gpuUtil) / 100 : 0
-                                readout: statsTab.hw ? (statsTab.hw.gpuName || "") : ""
+                                readout: statsTab.hw ? Logic.gpuReadout(statsTab.hw.gpuName) : ""
                                 spark: statsTab.hw ? (statsTab.hw.hist.gpu_util || []) : []
                             }
                             GaugeRing {
                                 Layout.fillWidth: true
-
                                 Layout.alignment: Qt.AlignTop
                                 visible: page.backend.statShowVram && statsTab.hw !== null
                                          && statsTab.hw.vramTotalMib > 0 && statsTab.hw.vramUsedMib >= 0
@@ -820,11 +810,12 @@ ColumnLayout {
                                 readout: statsTab.hw ? Logic.fmtMibPair(statsTab.hw.vramUsedMib,
                                                                        statsTab.hw.vramTotalMib) : ""
                                 segments: statsTab.vramSegs
+                                // which server owns each arc, under the ring
+                                legend: statsTab.vramSegs.length > 1 ? statsTab.vramSegs : []
                                 spark: statsTab.hw ? (statsTab.hw.hist.gpu_mem_used || []) : []
                             }
                             GaugeRing {
                                 Layout.fillWidth: true
-
                                 Layout.alignment: Qt.AlignTop
                                 visible: page.backend.statShowHardware && statsTab.hw !== null
                                          && statsTab.hw.ramTotalMib > 0 && statsTab.hw.ramUsedMib >= 0
@@ -833,34 +824,6 @@ ColumnLayout {
                                 readout: statsTab.hw ? Logic.fmtMibPair(statsTab.hw.ramUsedMib,
                                                                        statsTab.hw.ramTotalMib) : ""
                                 spark: statsTab.hw ? (statsTab.hw.hist.ram_used || []) : []
-                            }
-                        }
-
-                        // ── VRAM segments legend on its own row: it used to sit
-                        // under one ring and pushed that ring out of line ──
-                        Flow {
-                            Layout.fillWidth: true
-                            spacing: Kirigami.Units.smallSpacing
-                            visible: statsTab.hw !== null && page.backend.statShowVram
-                                     && statsTab.vramSegs.length > 1
-                            Repeater {
-                                model: (statsTab.hw && statsTab.vramSegs.length > 1)
-                                       ? statsTab.vramSegs.length : 0
-                                delegate: Row {
-                                    required property int modelData
-                                    spacing: 3
-                                    Rectangle {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 8; height: 8; radius: 2
-                                        color: statsTab.vramSegs[modelData] ? statsTab.vramSegs[modelData].color : "transparent"
-                                    }
-                                    PlasmaComponents.Label {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: statsTab.vramSegs[modelData] ? (statsTab.vramSegs[modelData].label || "") : ""
-                                        font: Kirigami.Theme.smallFont
-                                        opacity: 0.7
-                                    }
-                                }
                             }
                         }
 
@@ -1051,6 +1014,7 @@ ColumnLayout {
                                             frac: srv.st ? srv.st.ctxUsed / srv.st.ctxMax : 0
                                             segments: statsTab.ctxSegs(srv.row)
                                             legend: statsTab.ctxSegs(srv.row)
+                                            legendRight: true
                                         }
                                     }
 

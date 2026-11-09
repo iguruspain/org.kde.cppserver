@@ -422,17 +422,22 @@ gpu() {
             p="${p// /}"; m="${m// /}"
             [[ "$p" =~ ^[0-9]+$ && "$m" =~ ^[0-9]+$ ]] && printf 'proc=%s:%s\n' "$p" "$m"
         done
-        nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw \
+        gn=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+        [[ -n "$gn" ]] && echo "gpuname=$gn"
+        nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw,power.limit \
                    --format=csv,noheader,nounits 2>/dev/null | head -1 |
         awk -F, '{gsub(/ /, "")
                  if ($1+0 > 0)      print "gpuused=" $1+0
                  if ($2+0 > 0)      print "gputotal=" $2+0
                  if ($3 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gpuutil=" $3
                  if ($4 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gputemp=" $4
-                 if ($5 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gpupow=" $5}'
+                 if ($5 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gpupow=" $5
+                 if ($6 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gpulimit=" $6}'
     fi
     awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2}
          END{if (t) {print "ramtotal=" int(t/1024); print "ramused=" int((t-a)/1024)}}' /proc/meminfo
+    cn=$(awk -F': ' '/^model name/{print $2; exit}' /proc/cpuinfo)
+    [[ -n "$cn" ]] && echo "cpuname=$cn"
     # static CPU geometry so the CPU ring readout works even without strata:
     # one entry per physical core in thread_siblings_list (identical across a
     # core's SMT siblings); fall back to nproc when topology is absent
@@ -443,13 +448,19 @@ gpu() {
     [[ "$thr" =~ ^[0-9]+$ && "$thr" -gt 0 ]] && echo "threads=$thr"
     [[ "$cor" =~ ^[0-9]+$ && "$cor" -gt 0 ]] && echo "cores=$cor"
     c() { awk '/^cpu /{n=0; for(i=2;i<=NF;i++)n+=$i; print n" "$5}' /proc/stat; }
-    local t1 i1 t2 i2
+    # $6/$10 in diskstats are sectors read/written (512 B); skip loop/ram disks
+    d() { awk '$3 !~ /^(loop|ram|zram)/ {r+=$6; w+=$10} END{print r+0" "w+0}' /proc/diskstats; }
+    local t1 i1 t2 i2 r1 w1 r2 w2
+    read -r r1 w1 <<<"$(d)"
     read -r t1 i1 <<<"$(c)"
     sleep 0.15
     read -r t2 i2 <<<"$(c)"
+    read -r r2 w2 <<<"$(d)"
     if (( t2 > t1 )); then
         echo "cpu=$(( 100 * (t2 - t1 - (i2 - i1)) / (t2 - t1) ))"
     fi
+    awk -v dr="$(( r2 - r1 ))" -v dw="$(( w2 - w1 ))" \
+        'BEGIN{printf "diskread=%.1f\ndiskwrite=%.1f\n", dr*512/1000000/0.15, dw*512/1000000/0.15}'
 }
 
 case "$cmd" in
