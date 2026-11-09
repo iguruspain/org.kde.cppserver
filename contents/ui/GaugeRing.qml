@@ -61,7 +61,13 @@ Item {
             spacing: 0
             PlasmaComponents.Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Math.round(Math.max(0, Math.min(1, gauge.frac)) * 100) + "%"
+                // a real-but-tiny fill (llama: 636 of a 131k context) must
+                // not round to a flat "0%" — "<1%" keeps it honest
+                text: {
+                    var f = Math.max(0, Math.min(1, gauge.frac))
+                    if (f > 0 && f < 0.005) return "<1%"
+                    return Math.round(f * 100) + "%"
+                }
                 color: gauge.tint
                 font {
                     pixelSize: Math.round(gauge.ringSize * 0.24)

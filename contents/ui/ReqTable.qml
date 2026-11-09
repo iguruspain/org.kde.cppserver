@@ -149,6 +149,9 @@ TableView {
         required property int column
         required property var model
         text: model ? model.display : ""
+        // plain Text items do not inherit the Plasma palette: without this
+        // the grid paints black-on-dark
+        color: Kirigami.Theme.textColor
         font {
             pointSize: Kirigami.Theme.smallFont.pointSize
             family: column === 0 ? "monospace" : Kirigami.Theme.smallFont.family

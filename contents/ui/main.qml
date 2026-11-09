@@ -71,6 +71,9 @@ PlasmoidItem {
     property bool logsPaused: false
     property var statsMap: ({})          // id -> { ep, kind, err, health, body, at }
     property var statsTally: ({})        // id -> "model (vX)" (generic /health servers)
+    property var statsStickMaps: ({})    // id -> last-good scalars (llama anti-flicker)
+    property var statsModels: ({})       // id -> model name recovered from the log
+    property var statsScanned: ({})      // id -> whole-log marker scan already done
     property var gpuInfo: ({})           // parseGpu(): per-pid VRAM + machine totals
     property var gpuHist: ({})           // pushHist(): rolling ~60-sample machine history
 
@@ -299,6 +302,8 @@ PlasmoidItem {
             var m = Object.assign({}, runningMap)
             m[id] = { pid: String(kv.pid || ""), logfile: String(kv.logfile || "") }
             runningMap = m
+            // a started server shows up in the Stats tab right away
+            if (expanded && activeTab === 2) pollStats()
         })
     }
 
@@ -409,7 +414,7 @@ PlasmoidItem {
         servers.forEach(function (s) {
             var e = statsMap[s.id]
             if (!e) return
-            var st = Logic.parseStats(e, reqSeenOf(s.id))
+            var st = Logic.parseStats(e, reqSeenOf(s.id), statsExtraOf(s.id))
             entries.push({ name: s.name || s.id, reqs: st.reqs })
         })
         var merged = Logic.mergeReqs(entries, 8).map(Logic.fmtReqRow)
@@ -431,6 +436,61 @@ PlasmoidItem {
         return m
     }
 
+    // parseStats extras for one server: a persistent last-good value cache
+    // (llama.cpp reports nothing between requests — without it the card
+    // and the speed tile flicker 0/– between ticks) plus the model name
+    // recovered from the log. Mutated in place: no property reassignment
+    // inside a binding (parseStats runs from the rows binding).
+    function statsExtraOf(id) {
+        if (!statsStickMaps[id]) statsStickMaps[id] = {}
+        return { stick: statsStickMaps[id], model: statsModels[id] || "" }
+    }
+
+    // llama.cpp prints the model it loads ("loading model '/x.gguf'",
+    // older builds "loading model from '...'"): harvest the marker from a
+    // log tail. The model name is what the Stats card shows.
+    function noteModelMarkers(id, text) {
+        var rx = /loading model(?: from)? '([^']*)'/g
+        var m, last = ""
+        while ((m = rx.exec(String(text || ""))) !== null) last = m[1]
+        var name = String(last).split("/").pop()
+        if (name !== "" && statsModels[id] !== name) statsModels[id] = name
+    }
+    // The load marker sits in the startup lines and ages out of every tail
+    // window: ask the script for the marker lines of the WHOLE log, once
+    // per server run, until a model is known.
+    function scanModelMarkers(id) {
+        statsScanned[id] = true
+        var r = runningMap[id]
+        if (!r || !r.logfile) return
+        ctl("logread " + Logic.shQuote(r.logfile) + " markers", function (code, out) {
+            if (code !== 0 || statsModels[id]) return
+            noteModelMarkers(id, out)
+        })
+    }
+
+    // A server that stopped (button, crash, another instance) leaves
+    // nothing behind in the Stats tab: its card, its request rows, its
+    // sticky values, recovered model and seen-task stamps are all dropped,
+    // so a restart re-probes from zero instead of showing stale ghosts.
+    function forgetServerStats(id) {
+        statsMap = Logic.withoutKey(statsMap, id)
+        statsTally = Logic.withoutKey(statsTally, id)
+        delete statsStickMaps[id]
+        delete statsModels[id]
+        delete statsScanned[id]
+        delete reqSeenMaps[id]
+    }
+    onRunningMapChanged: {
+        var gone = []
+        Object.keys(statsMap).forEach(function (id) {
+            if (!runningMap[id]) gone.push(id)
+        })
+        if (gone.length === 0) return
+        gone.forEach(function (id) { forgetServerStats(id) })
+        refreshReqStream()
+    }
+
     function applyProbe(id, ep, code, out, isLlama) {
         var body = String(out || "")
         var entry = { ep: ep, kind: "none", err: "", health: "", body: "", log: "", at: Date.now() }
@@ -449,6 +509,18 @@ PlasmoidItem {
             entry.body = body
         } else {
             entry.err = "no_metrics"      // HTML error page, plain-text 404…
+        }
+        // The metrics probe lands every tick, but the llama log tail it
+        // pairs with arrives ~200 ms later on its own command. A llama.cpp
+        // server without --metrics 404s that probe, so in the gap the entry
+        // would classify as "none"/"no_metrics" with an empty log: its grid
+        // and request rows would blank and refill every single second.
+        // Carry both facts (last tail + the llama classification) forward;
+        // the logread callback still refines everything when it lands.
+        var prev = statsMap[id]
+        if (prev && prev.log) {
+            entry.log = prev.log
+            if (isLlama && prev.kind === "llama") entry.kind = "llama"
         }
         var sm = Object.assign({}, statsMap)
         sm[id] = entry
@@ -471,6 +543,10 @@ PlasmoidItem {
                     var sm2 = Object.assign({}, statsMap)
                     sm2[id] = cur
                     statsMap = sm2
+                    // the loaded model is a log fact: harvest markers from
+                    // the tail, and (once per run) from the whole log
+                    noteModelMarkers(id, out2)
+                    if (!statsModels[id] && !statsScanned[id]) scanModelMarkers(id)
                     refreshReqStream()
                 })
             }

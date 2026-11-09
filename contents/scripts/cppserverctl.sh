@@ -327,7 +327,7 @@ logread() {
         echo "error=missing_log_path"
         exit 2
     fi
-    if ! [[ "$lines" =~ ^[0-9]+$ ]]; then
+    if [[ "$lines" != "markers" ]] && ! [[ "$lines" =~ ^[0-9]+$ ]]; then
         echo "error=invalid_lines"
         exit 2
     fi
@@ -347,6 +347,13 @@ logread() {
     if [[ ! -r "$real_path" ]]; then
         echo "error=log_not_readable"
         exit 2
+    fi
+    if [[ "$lines" == "markers" ]]; then
+        # llama.cpp model-load markers, whole file: the load lines age out
+        # of every tail window, but the last match says which model the
+        # server loaded. No match is not an error: empty output, exit 0.
+        grep -a -E "loading model( from)? '" "$real_path" 2>/dev/null || true
+        exit 0
     fi
     tail -n "$lines" "$real_path"
 }

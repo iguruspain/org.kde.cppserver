@@ -471,10 +471,26 @@ function pushHist(prev, g, cap) {
     return out;
 }
 
+// llama.cpp has no per-tick report between requests: the tail window keeps
+// changing, so scalars would flash to 0/– between polls. For the llama kind
+// parseStats keeps a caller-owned per-server cache (extra.stick) and reuses
+// the last real value of every field a poll does not report.
+const STICKY_FIELDS = ["tps", "meanTps", "ctxUsed", "ctxMax", "promptTok",
+                       "outTok", "reusedTok", "events", "ownVramMib",
+                       "logVramUsedMib", "logVramSizeMib"];
+function stickify(s, stick) {
+    STICKY_FIELDS.forEach(function (k) {
+        if (typeof s[k] === "number" && s[k] >= 0) stick[k] = s[k];
+        else if (typeof stick[k] === "number" && stick[k] >= 0) s[k] = stick[k];
+    });
+}
+
 // Normalize one polled server into what the Stats tab renders. Unknown
 // numbers are -1 so the UI can hide that chip/progress bar.
 // entry: { kind: "strata"|"llama"|"json"|"none", health: <health body>,
-//          body: <metrics body>, err: "" }
+//          body: <metrics body>, log: <llama log tail>, err: "" }
+// extra: { stick: per-server last-good cache (see stickify),
+//          model: model name recovered from log markers elsewhere }
 // strata /metrics:  engine{model,max_context}, live{state,phase,queued,
 //                   prompt_total,generated,tok_s,tok_s_mean}, totals{requests,
 //                   prompt_tokens,reused,output_tokens,since}, requests[],
@@ -483,8 +499,9 @@ function pushHist(prev, g, cap) {
 // llama.cpp /metrics (needs --metrics): llm:prompt_tokens_total,
 //   llm:generated_tokens_total, llm:decode_seconds_sum_total, llm:n_ctx,
 //   llm:urange, llm:predictions_active (+ old llm:prom_total/gen_total names).
-function parseStats(entry, seen) {
+function parseStats(entry, seen, extra) {
     const e = entry || {};
+    const x = extra || {};
     const s = {
         kind: e.kind || "none", err: e.err || "",
         model: "", state: "", active: false, queued: 0,
@@ -597,9 +614,12 @@ function parseStats(entry, seen) {
         // without --metrics there are no counters at all: fill every still-empty
         // field from the log tail (print_timing lines).
         if (e.log) {
-            const ls = { reqs: [], meanTps: -1 };
+            const ls = { reqs: [], meanTps: -1, tps: -1 };
             llamaLogStats(e.log, ls, seen, Math.floor(Date.now() / 1000));
             if (!s.model && ls.model) s.model = ls.model;
+            // the load marker usually sits far above any tail window; the
+            // caller scans the whole log once and passes it here
+            if (!s.model && x.model) s.model = String(x.model);
             if (s.ctxMax < 0 && ls.ctxMax > 0) s.ctxMax = ls.ctxMax;
             if (s.ctxUsed < 0 && ls.ctxUsed >= 0) s.ctxUsed = ls.ctxUsed;
             if (s.events < 0 && ls.events >= 0) s.events = ls.events;
@@ -613,6 +633,9 @@ function parseStats(entry, seen) {
             if (ls.logVramUsedMib >= 0) s.logVramUsedMib = ls.logVramUsedMib;
             if (ls.logVramSizeMib >= 0) s.logVramSizeMib = ls.logVramSizeMib;
         }
+        // idle llama windows report nothing: hold the last real values so
+        // the card and the speed tile never flicker 0/– between ticks
+        if (x.stick) stickify(s, x.stick);
     } else if (e.kind === "json") {
         s.state = "idle";
     }
@@ -658,8 +681,12 @@ function mergeReqs(entries, max) {
 // llama.cpp without --metrics: derive the same fields from its log tail.
 // Recognized lines (several llama.cpp generations):
 //   llama_context: n_ctx  =  8192                       -> ctxMax
-//   loading model from '/x/y.gguf'                      -> model
+//   loading model ['/from'] '/x/y.gguf'                 -> model (marker may
+//                                                        sit above the tail:
+//                                                        see logread markers)
 //   slot print_timing: ... cur_n = 14681                -> live ctxUsed
+//   cached n_tokens / stop processing: n_tokens = N     -> live ctxUsed
+//                                                        (new builds print no cur_n)
 //   slot print_timing: ... | total time = N ms / M tokens (per task id)
 //                                                        -> finished requests
 //   slot print_timing: ... prompt eval time = T ms / P tokens
@@ -671,7 +698,9 @@ function llamaLogStats(text, s, seen, now) {
     let m;
     m = /n_ctx\s*=\s*(\d+)/.exec(t);
     if (m) s.ctxMax = Number(m[1]);
-    m = /loading model from '([^']*)'/.exec(t);
+    // "load_model: loading model '/x.gguf'" (current builds) and the older
+    // "loading model from '/x.gguf'"
+    m = /loading model(?: from)? '([^']*)'/.exec(t);
     if (m) s.model = String(m[1]).split("/").pop();
 
     const reCur = /cur_n\s*=\s*(\d+)/g;
@@ -684,8 +713,26 @@ function llamaLogStats(text, s, seen, now) {
     while ((m = reTot.exec(t)) !== null) {
         lastTot = { ms: Number(m[1]), tok: Number(m[2]) };
     }
+    // new builds print no cur_n at all: the last n_tokens mention in the
+    // tail (cached prefix, context checkpoint, "stop processing: n_tokens")
+    // is the most recent reading of what the slot actually holds — later
+    // lines win over earlier ones, and over the older total-time estimate.
+    if (used < 0) {
+        const reNtok = /\bn_tokens\s*=\s*(\d+)/g;
+        while ((m = reNtok.exec(t)) !== null) used = Number(m[1]);
+    }
     if (used < 0 && lastTot) used = lastTot.tok;
     s.ctxUsed = used;
+
+    // a generation is live between "processing task" (launch) and the
+    // matching "stop processing" (release): whichever comes last wins
+    const reProc = /\b(?:stop processing|processing task)\b/g;
+    let lastOpen = -1, lastClose = -1;
+    while ((m = reProc.exec(t)) !== null) {
+        if (m[0] === "stop processing") lastClose = m.index;
+        else lastOpen = m.index;
+    }
+    s.active = lastOpen > lastClose;
 
     const rePrompt = /task (\d+) \|\s*prompt eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
     while ((m = rePrompt.exec(t)) !== null) {
@@ -694,12 +741,15 @@ function llamaLogStats(text, s, seen, now) {
         perTask[id].inTok = Number(m[3]);
         perTask[id].promptMs = Number(m[2]);
     }
-    const reEval = /task (\d+) \|\s+eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
+    // newer builds append the decode rate to the eval line
+    // ("(24.43 ms per token, 40.93 tokens per second)")
+    const reEval = /task (\d+) \|\s+eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens(?:[^\n]*?,\s*([0-9.]+) tokens per second)?/g;
     while ((m = reEval.exec(t)) !== null) {
         const id = m[1];
         if (!perTask[id]) { perTask[id] = {}; order.push(id); }
         perTask[id].outTok = Number(m[3]);
         perTask[id].evalMs = Number(m[2]);
+        if (m[4] !== undefined) perTask[id].rate = Number(m[4]);
     }
     // total time lines carry the task id only in some builds ("task N | total").
     const reTotTask = /task (\d+) \|\s*total time =\s+([0-9.]+) ms/g;
@@ -743,6 +793,14 @@ function llamaLogStats(text, s, seen, now) {
     while ((m = reAvg.exec(t)) !== null) s.meanTps = Number(m[1]);
     const reCur2 = /cur speed =\s*([0-9.]+)/g;
     while ((m = reCur2.exec(t)) !== null) s.tps = Number(m[1]);
+    if (s.tps < 0) {
+        // no "cur speed" in these builds: the newest task's eval rate is
+        // the freshest decode speed the log ever printed
+        for (let i = order.length - 1; i >= 0; i = i - 1) {
+            const rt = perTask[order[i]].rate;
+            if (rt > 0) { s.tps = rt; break; }
+        }
+    }
     if (s.meanTps < 0 && s.outTok > 0) {
         let decMs = 0;
         order.forEach(function (id) { decMs += perTask[id].evalMs || 0; });

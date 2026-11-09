@@ -485,22 +485,27 @@ ColumnLayout {
                                                          : "monospace"
 
                 // ── dashboard model ───────────────────────────────────────
-                // One card per server that is running or has been probed.
-                // Probes land every second and rebuild these arrays, so the
-                // Repeaters NEVER bind to them directly: they bind to the
-                // stable id caches below (reassigned only when membership
-                // changes) and look values up in rowsById/tilesById — which
-                // are reassigned every tick. Delegates then stay alive and
-                // only their bindings re-evaluate: no flicker, no jumps.
+                // One card per RUNNING server: main.qml drops everything a
+                // stopped server left in the Stats tab (probe entry, request
+                // rows, sticky values) the moment its pid dies, so stopped
+                // servers never linger as stale ghost cards; a start adds
+                // the card back and probes fill it. Probes land every
+                // second and rebuild these arrays, so the Repeaters NEVER
+                // bind to them directly: they bind to the stable id caches
+                // below (reassigned only when membership changes) and look
+                // values up in rowsById/tilesById — which are reassigned
+                // every tick. Delegates then stay alive and only their
+                // bindings re-evaluate: no flicker, no jumps.
                 readonly property var rows: {
                     var out = []
                     page.backend.servers.forEach(function (s) {
+                        if (!page.backend.runningMap[s.id]) return
                         var e = page.backend.statsMap[s.id]
-                        if (!e && !page.backend.runningMap[s.id]) return
                         out.push({
                             id: s.id, name: s.name || s.id, s: s,
-                            running: !!page.backend.runningMap[s.id],
-                            st: e ? Logic.parseStats(e, page.backend.reqSeenOf(s.id)) : null
+                            running: true,
+                            st: e ? Logic.parseStats(e, page.backend.reqSeenOf(s.id),
+                                                    page.backend.statsExtraOf(s.id)) : null
                         })
                     })
                     return out
