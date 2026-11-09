@@ -67,6 +67,7 @@ function normalizeServers(raw) {
             host: String(s.host || ""),
             port: Math.max(0, Math.min(65535, Math.floor(Number(s.port)) || 0)),
             configFile: String(s.configFile || ""),
+            preset: String(s.preset || "").trim(),
             enabled: s.enabled !== false
         });
     });
@@ -122,7 +123,9 @@ function buildCommand(server, homeDir) {
     const host = homeExpand(server.host, homeDir);
     const port = (Number(server.port) > 0) ? String(Math.floor(Number(server.port))) : "";
     const cfg = homeExpand(server.configFile, homeDir);
+    const preset = homeExpand(server.preset, homeDir);
     cmd = subToken(cmd, "CONFIG_FILE", cfg);
+    cmd = subToken(cmd, "PRESET", preset);
     cmd = subToken(cmd, "PORT", port);
     cmd = subToken(cmd, "HOST", host);
     return cmd.trim();
@@ -327,4 +330,342 @@ function withoutKey(obj, key) {
     const m = Object.assign({}, obj || {});
     delete m[key];
     return m;
+}
+
+// ── Stats monitor ─────────────────────────────────────────────────────────
+// Number formatters shared by the Stats tab ("–" for unknown values).
+function fmtMib(v) {
+    if (typeof v !== "number" || !isFinite(v) || v < 0) return "–";
+    return v >= 1024 ? (v / 1024).toFixed(1) + " GiB" : Math.round(v) + " MiB";
+}
+function fmtTokens(v) {
+    if (typeof v !== "number" || !isFinite(v) || v < 0) return "–";
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+    if (v >= 1e4) return Math.round(v / 1e3) + "k";
+    return String(Math.round(v));
+}
+function fmtDur(s) {
+    if (typeof s !== "number" || !isFinite(s) || s < 0) return "–";
+    if (s >= 3600) return Math.floor(s / 3600) + " h " + Math.floor((s % 3600) / 60) + " m";
+    if (s >= 60) return Math.floor(s / 60) + " m " + Math.round(s % 60) + " s";
+    return s.toFixed(1) + " s";
+}
+function fmtAge(s) {
+    if (typeof s !== "number" || !isFinite(s) || s < 0) return "–";
+    if (s < 60) return Math.round(s) + " s";
+    if (s < 3600) return Math.round(s / 60) + " min";
+    return (s / 3600).toFixed(1) + " h";
+}
+
+// /health JSON -> "model (vX)" display string, "" when nothing useful.
+// Covers strata (model, version) and llama-server (model, build_info).
+function healthTally(body) {
+    const d = safeJsonParse(body, null);
+    if (!d || typeof d !== "object") return "";
+    const m = String(d.model || "");
+    let v = d.version ? String(d.version) : "";
+    if (!v && d.build_info && d.build_info.build_commit) v = String(d.build_info.build_commit).slice(0, 8);
+    if (m === "" && v === "") return "";
+    return m + (v ? " (v" + v + ")" : "");
+}
+
+// Prometheus exposition text -> { name: [values] } (every sample of a metric
+// name, labels dropped). Comments and unparsable lines are ignored.
+function parsePrometheus(text) {
+    const out = {};
+    String(text || "").split("\n").forEach(function (line) {
+        const l = line.trim();
+        if (l === "" || l.charAt(0) === "#") return;
+        const m = /^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{[^}]*\})?\s+(-?[0-9eE+.\-]+)(?:\s+\d+)?$/.exec(l);
+        if (!m) return;
+        const v = Number(m[2]);
+        if (!isFinite(v)) return;
+        (out[m[1]] = out[m[1]] || []).push(v);
+    });
+    return out;
+}
+
+// cppserverctl.sh `gpu` output -> machine counters + per-process VRAM.
+// procs maps pid(string) -> MiB; missing numbers stay -1 so the UI hides
+// that ring/tile.
+function parseGpu(text) {
+    const g = {
+        procs: {},
+        gpuUsedMib: -1, gpuTotalMib: -1, gpuUtil: -1, gpuTemp: -1, gpuPower: -1,
+        ramUsedMib: -1, ramTotalMib: -1, cpuPct: -1
+    };
+    const keys = {
+        gpuused: "gpuUsedMib", gputotal: "gpuTotalMib", gpuutil: "gpuUtil",
+        gputemp: "gpuTemp", gpupow: "gpuPower",
+        ramused: "ramUsedMib", ramtotal: "ramTotalMib", cpu: "cpuPct"
+    };
+    String(text || "").split("\n").forEach(function (line) {
+        const eq = line.indexOf("=");
+        if (eq < 0) return;
+        const k = line.slice(0, eq).trim();
+        const v = line.slice(eq + 1).trim();
+        if (k === "proc") {
+            const c = v.split(":");
+            const pid = c[0], mib = Number(c[1]);
+            if (pid && isFinite(mib)) g.procs[pid] = mib;
+        } else if (keys[k] !== undefined) {
+            const n = Number(v);
+            if (isFinite(n)) g[keys[k]] = n;
+        }
+    });
+    return g;
+}
+
+// Normalize one polled server into what the Stats tab renders. Unknown
+// numbers are -1 so the UI can hide that chip/progress bar.
+// entry: { kind: "strata"|"llama"|"json"|"none", health: <health body>,
+//          body: <metrics body>, err: "" }
+// strata /metrics:  engine{model,max_context}, live{state,phase,queued,
+//                   prompt_total,generated,tok_s,tok_s_mean}, totals{requests,
+//                   prompt_tokens,reused,output_tokens,since}, requests[],
+//                   hardware{gpu_util,gpu_mem_used/total,gpu_temp,gpu_power,
+//                   cpu,ram_used/total,tok_s_mean}.
+// llama.cpp /metrics (needs --metrics): llm:prompt_tokens_total,
+//   llm:generated_tokens_total, llm:decode_seconds_sum_total, llm:n_ctx,
+//   llm:urange, llm:predictions_active (+ old llm:prom_total/gen_total names).
+function parseStats(entry) {
+    const e = entry || {};
+    const s = {
+        kind: e.kind || "none", err: e.err || "",
+        model: "", state: "", active: false, queued: 0,
+        tps: -1, meanTps: -1, ctxUsed: -1, ctxMax: 0,
+        vramUsedMib: -1, vramTotalMib: -1,
+        // this server's own VRAM footprint (source of the ring segment)
+        ownVramMib: -1,
+        // llama.cpp: device-wide usage from its startup log lines
+        logVramUsedMib: -1, logVramSizeMib: -1,
+        gpuUtil: -1, gpuTemp: -1, gpuPower: -1, cpuPct: -1,
+        ramUsedMib: -1, ramTotalMib: -1,
+        promptTok: -1, outTok: -1, reusedTok: -1, events: -1,
+        reqs: [],
+        // dashboard extras (strata): names, limits, sparkline series, live progress
+        gpuName: "", cpuName: "", cores: 0, threads: 0,
+        powerLimit: -1, pcie: "", diskRead: -1, prefillTps: -1,
+        hist: {}, phase: "", genNow: -1, genMax: 0,
+        promptRead: -1, promptTotal: 0
+    };
+    if (e.kind === "strata" && e.body) {
+        const d = safeJsonParse(e.body, null);
+        if (!d) { s.err = "bad_json"; return s; }
+        const en = d.engine || {}, lv = d.live || {}, tt = d.totals || {}, hw = d.hardware || {};
+        s.model = String(en.model || "");
+        s.state = String(lv.state || "");
+        s.queued = Number(lv.queued) || 0;
+        s.active = s.state !== "" && s.state !== "idle";
+        s.tps = (typeof lv.tok_s === "number" && lv.tok_s > 0) ? lv.tok_s : -1;
+        s.meanTps = (typeof lv.tok_s_mean === "number" && lv.tok_s_mean > 0) ? lv.tok_s_mean
+                  : (typeof hw.tok_s_mean === "number" ? hw.tok_s_mean : -1);
+        s.ctxMax = Number(en.max_context) || 0;
+        if (typeof lv.prompt_total === "number" && lv.prompt_total > 0) {
+            s.ctxUsed = lv.prompt_total + (Number(lv.generated) || 0);
+        } else {
+            const rq = Array.isArray(d.requests) ? d.requests : [];
+            let last = null;
+            rq.forEach(function (r) { if (r && (!last || (Number(r.time) || 0) > (Number(last.time) || 0))) last = r; });
+            if (last) s.ctxUsed = (Number(last.prompt_total) || 0) + (Number(last.output_tokens) || 0);
+        }
+        if (typeof hw.gpu_mem_total === "number") s.vramTotalMib = hw.gpu_mem_total / 1048576;
+        if (typeof hw.gpu_mem_used === "number") s.vramUsedMib = hw.gpu_mem_used / 1048576;
+        // strata's arena is its own VRAM allocation (weights + KV + buffers)
+        if (typeof en.arena_mib === "number" && en.arena_mib > 0) s.ownVramMib = en.arena_mib;
+        ["gpu_util", "gpu_temp", "gpu_power", "cpu"].forEach(function (k) {
+            if (typeof hw[k] === "number") s[k === "gpu_util" ? "gpuUtil" : k === "gpu_temp" ? "gpuTemp" : k === "gpu_power" ? "gpuPower" : "cpuPct"] = hw[k];
+        });
+        if (typeof hw.ram_total === "number") s.ramTotalMib = hw.ram_total / 1048576;
+        if (typeof hw.ram_used === "number") s.ramUsedMib = hw.ram_used / 1048576;
+        if (typeof hw.gpu_power_limit === "number") s.powerLimit = hw.gpu_power_limit;
+        if (typeof hw.disk_read_mb === "number") s.diskRead = hw.disk_read_mb;
+        if (typeof hw.prefill_tok_s_mean === "number" && hw.prefill_tok_s_mean > 0) s.prefillTps = hw.prefill_tok_s_mean;
+        if (typeof hw.gpu_pcie_gen === "number" && hw.gpu_pcie_gen > 0) {
+            s.pcie = "Gen" + hw.gpu_pcie_gen + (hw.gpu_pcie_width ? " x" + hw.gpu_pcie_width : "");
+        }
+        const hs = d.hardware_static || {};
+        if (hs.gpu_name) s.gpuName = String(hs.gpu_name);
+        if (hs.cpu_name) s.cpuName = String(hs.cpu_name);
+        if (typeof hs.cores === "number") s.cores = hs.cores;
+        if (typeof hs.threads === "number") s.threads = hs.threads;
+        // Sparkline series strata keeps server-side; the UI just draws them.
+        const hi = d.history || {};
+        ["gpu_util", "gpu_temp", "gpu_power", "cpu", "ram_used", "gpu_mem_used", "tok_s", "disk_read_mb"]
+            .forEach(function (k) { if (Array.isArray(hi[k])) s.hist[k] = hi[k]; });
+        s.phase = lv.phase ? String(lv.phase) : "";
+        if (typeof lv.generated === "number" && lv.generated >= 0) s.genNow = lv.generated;
+        if (typeof lv.max_tokens === "number") s.genMax = lv.max_tokens;
+        if (typeof lv.prompt_read === "number" && lv.prompt_read >= 0) s.promptRead = lv.prompt_read;
+        if (typeof lv.prompt_total === "number") s.promptTotal = lv.prompt_total;
+        if (typeof tt.requests === "number") s.events = tt.requests;
+        if (typeof tt.prompt_tokens === "number") s.promptTok = tt.prompt_tokens;
+        if (typeof tt.output_tokens === "number") s.outTok = tt.output_tokens;
+        if (typeof tt.reused === "number") s.reusedTok = tt.reused;
+        (Array.isArray(d.requests) ? d.requests : []).forEach(function (r) {
+            if (!r) return;
+            const pTok = Number(r.prompt_tokens) || 0;
+            const pMs = Number(r.prompt_ms) || 0;
+            s.reqs.push({
+                at: Number(r.time) || 0, durS: Number(r.duration_s) || 0,
+                tps: Number(r.decode_tok_s) || 0, inTok: pTok,
+                outTok: Number(r.output_tokens) || 0, finish: String(r.finish || ""),
+                reused: Number(r.reused) || 0,
+                hitRate: (typeof r.hit_rate === "number") ? r.hit_rate : -1,
+                prefillTps: (pMs > 0 && pTok > 0) ? pTok / (pMs / 1000) : -1
+            });
+        });
+        s.reqs.sort(function (a, b) { return b.at - a.at; });
+        s.reqs = s.reqs.slice(0, 10);
+    } else if (e.kind === "llama") {
+        const prom = parsePrometheus(e.body);
+        // Upstream llama-server registers the llamacpp: prefix; older forks used
+        // llm:. Both are accepted.
+        const first = function (names) {
+            for (let i = 0; i < names.length; i++)
+                if (prom[names[i]] && prom[names[i]].length)
+                    return prom[names[i]][0];
+            return -1;
+        };
+        const mm = /(?:llamacpp|llm):model_info\{[^}]*model="([^"]*)"/.exec(String(e.body || ""));
+        if (mm) s.model = mm[1];
+        s.promptTok = first(["llamacpp:prompt_tokens_total", "llm:prompt_tokens_total"]);
+        s.outTok = first(["llamacpp:tokens_predicted_total", "llm:predicted_tokens_total"]);
+        const dec = first(["llamacpp:tokens_predicted_seconds_total", "llm:predicted_tokens_seconds_total"]);
+        if (s.outTok > 0 && dec > 0) s.meanTps = s.outTok / dec;
+        s.ctxMax = first(["llamacpp:n_ctx", "llm:n_ctx"]);
+        const range = prom["llm:urange"] || prom["llamacpp:urange"] || [];
+        if (range.length) s.ctxUsed = range.reduce(function (a, b) { return Math.max(a, b); }, 0);
+        s.active = first(["llamacpp:requests_processing", "llm:requests_processing"]) > 0;
+        s.state = s.active ? "generating" : "idle";
+        // The counters say nothing about n_ctx/urange or per-request detail, and
+        // without --metrics there are no counters at all: fill every still-empty
+        // field from the log tail (print_timing lines).
+        if (e.log) {
+            const ls = { reqs: [], meanTps: -1 };
+            llamaLogStats(e.log, ls);
+            if (!s.model && ls.model) s.model = ls.model;
+            if (s.ctxMax < 0 && ls.ctxMax > 0) s.ctxMax = ls.ctxMax;
+            if (s.ctxUsed < 0 && ls.ctxUsed >= 0) s.ctxUsed = ls.ctxUsed;
+            if (s.events < 0 && ls.events >= 0) s.events = ls.events;
+            if (s.promptTok < 0 && ls.promptTok >= 0) s.promptTok = ls.promptTok;
+            if (s.outTok < 0 && ls.outTok >= 0) s.outTok = ls.outTok;
+            if (s.tps < 0 && ls.tps >= 0) s.tps = ls.tps;
+            if (s.meanTps < 0 && ls.meanTps >= 0) s.meanTps = ls.meanTps;
+            if (s.reqs.length === 0 && ls.reqs.length) s.reqs = ls.reqs;
+            if (s.state === "idle" && ls.active) s.state = "generating";
+            s.active = s.active || ls.active;
+            if (ls.logVramUsedMib >= 0) s.logVramUsedMib = ls.logVramUsedMib;
+            if (ls.logVramSizeMib >= 0) s.logVramSizeMib = ls.logVramSizeMib;
+        }
+    } else if (e.kind === "json") {
+        s.state = "idle";
+    }
+    return s;
+}
+
+// Recent requests across all servers, newest first (rows without a real
+// timestamp sink to the bottom). entries: [{ name, reqs }].
+function mergeReqs(entries, max) {
+    const all = [];
+    (entries || []).forEach(function (e) {
+        if (!e || !Array.isArray(e.reqs)) return;
+        e.reqs.forEach(function (r) {
+            if (r) all.push(Object.assign({ name: e.name }, r));
+        });
+    });
+    all.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+    return all.slice(0, max > 0 ? max : 8);
+}
+
+// llama.cpp without --metrics: derive the same fields from its log tail.
+// Recognized lines (several llama.cpp generations):
+//   llama_context: n_ctx  =  8192                       -> ctxMax
+//   loading model from '/x/y.gguf'                      -> model
+//   slot print_timing: ... cur_n = 14681                -> live ctxUsed
+//   slot print_timing: ... | total time = N ms / M tokens (per task id)
+//                                                        -> finished requests
+//   slot print_timing: ... prompt eval time = T ms / P tokens
+//   slot print_timing: ...        eval time = T ms / O tokens
+//   ... cur speed = 45.2 | avg speed = 43.2 (newer builds)
+//   ... avg speed = 43.2 t/s
+function llamaLogStats(text, s) {
+    const t = String(text || "");
+    let m;
+    m = /n_ctx\s*=\s*(\d+)/.exec(t);
+    if (m) s.ctxMax = Number(m[1]);
+    m = /loading model from '([^']*)'/.exec(t);
+    if (m) s.model = String(m[1]).split("/").pop();
+
+    const reCur = /cur_n\s*=\s*(\d+)/g;
+    let used = -1;
+    while ((m = reCur.exec(t)) !== null) used = Math.max(used, Number(m[1]));
+    const reTot = /\|\s*total time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
+    const perTask = {};
+    const order = [];
+    let lastTot = null;
+    while ((m = reTot.exec(t)) !== null) {
+        lastTot = { ms: Number(m[1]), tok: Number(m[2]) };
+    }
+    if (used < 0 && lastTot) used = lastTot.tok;
+    s.ctxUsed = used;
+
+    const rePrompt = /task (\d+) \|\s*prompt eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
+    while ((m = rePrompt.exec(t)) !== null) {
+        const id = m[1];
+        if (!perTask[id]) { perTask[id] = {}; order.push(id); }
+        perTask[id].inTok = Number(m[3]);
+        perTask[id].promptMs = Number(m[2]);
+    }
+    const reEval = /task (\d+) \|\s+eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
+    while ((m = reEval.exec(t)) !== null) {
+        const id = m[1];
+        if (!perTask[id]) { perTask[id] = {}; order.push(id); }
+        perTask[id].outTok = Number(m[3]);
+        perTask[id].evalMs = Number(m[2]);
+    }
+    // total time lines carry the task id only in some builds ("task N | total").
+    const reTotTask = /task (\d+) \|\s*total time =\s+([0-9.]+) ms/g;
+    while ((m = reTotTask.exec(t)) !== null) {
+        const id = m[1];
+        if (!perTask[id]) { perTask[id] = {}; order.push(id); }
+        perTask[id].totalMs = Number(m[2]);
+    }
+    let sumPrompt = 0, sumOut = 0, count = 0;
+    order.forEach(function (id) {
+        const r = perTask[id];
+        if (r.inTok === undefined && r.outTok === undefined) return;
+        count++;
+        sumPrompt += r.inTok || 0;
+        sumOut += r.outTok || 0;
+        const dur = (r.totalMs || ((r.promptMs || 0) + (r.evalMs || 0))) / 1000;
+        const outT = r.outTok || 0;
+        s.reqs.push({
+            at: 0, durS: dur, tps: dur > 0 ? outT / dur : 0,
+            inTok: r.inTok || 0, outTok: outT, finish: "stop"
+        });
+    });
+    if (count > 0) {
+        s.events = count;
+        s.promptTok = sumPrompt;
+        s.outTok = sumOut;
+        s.reqs = s.reqs.slice(-6).reverse();
+    }
+
+    const reAvg = /avg speed =\s*([0-9.]+)/g;
+    while ((m = reAvg.exec(t)) !== null) s.meanTps = Number(m[1]);
+    const reCur2 = /cur speed =\s*([0-9.]+)/g;
+    while ((m = reCur2.exec(t)) !== null) s.tps = Number(m[1]);
+    if (s.meanTps < 0 && s.outTok > 0) {
+        let decMs = 0;
+        order.forEach(function (id) { decMs += perTask[id].evalMs || 0; });
+        if (decMs > 0) s.meanTps = s.outTok / (decMs / 1000);
+    }
+    // CUDA/Metal backends print device memory at load ("used = X, free = Y,
+    // size = S MiB"): the last reading labels the llama ring segment.
+    const reVram = /used\s*=\s*([\d,]+),\s*free\s*=\s*[\d,]+,\s*size\s*=\s*([\d,]+)/g;
+    while ((m = reVram.exec(t)) !== null) {
+        s.logVramUsedMib = Number(m[1].replace(/,/g, ""));
+        s.logVramSizeMib = Number(m[2].replace(/,/g, ""));
+    }
 }

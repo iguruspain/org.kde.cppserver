@@ -63,7 +63,7 @@ KCM.SimpleKCM {
         for (var i = 0; i < serversModel.count; i++) {
             var m = serversModel.get(i)
             out.push({ id: m.sid, name: m.name, command: m.command, host: m.host,
-                       port: m.port, configFile: m.configFile, enabled: m.enabled })
+                       port: m.port, configFile: m.configFile, preset: m.preset, enabled: m.enabled })
         }
         return out
     }
@@ -95,7 +95,7 @@ KCM.SimpleKCM {
                 }
                 Logic.normalizeServers(parsed).forEach(function (s) {
                     serversModel.append({ sid: s.id, name: s.name, command: s.command, host: s.host,
-                                   port: s.port, configFile: s.configFile, enabled: s.enabled })
+                                   port: s.port, configFile: s.configFile, preset: s.preset, enabled: s.enabled })
                 })
                 page.loaded = true
             })
@@ -125,9 +125,32 @@ KCM.SimpleKCM {
             }
         })
     }
+    // ── strata launch presets ({PRESET}) ──────────────────────────────────
+    property var presetNames: []
+    property string presetsError: ""
+
+    function fetchPresets() {
+        ctl("presets", function (code, out, err) {
+            var kv = Logic.parseKv(out)
+            if (code !== 0) {
+                page.presetNames = []
+                page.presetsError = kv.error === "strata_missing"
+                                    ? i18n("strata is not on PATH") : i18n("Could not list presets")
+                return
+            }
+            page.presetsError = ""
+            var d = Logic.safeJsonParse(kv.presets, null)
+            var names = []
+            if (d && Array.isArray(d.presets)) {
+                d.presets.forEach(function (p) { if (p && p.name) names.push(String(p.name)) })
+            }
+            page.presetNames = names
+        })
+    }
+
     // Flush pending edits if the dialog is closed within the debounce window.
     Component.onDestruction: if (saveTimer.running) { saveTimer.stop(); flush() }
-    Component.onCompleted: load()
+    Component.onCompleted: { load(); fetchPresets() }
 
     function setField(i, key, value) {
         serversModel.setProperty(i, key, value)
@@ -155,10 +178,10 @@ KCM.SimpleKCM {
             })
     }
 
-    function addServer(name, command, port, configFile) {
+    function addServer(name, command, port, configFile, preset) {
         var id = uniqueId(name || "server")
         serversModel.append({ sid: id, name: name, command: command, host: "127.0.0.1", port: port,
-                       configFile: configFile, enabled: true })
+                       configFile: configFile, preset: preset || "", enabled: true })
         expandedId = id
         focusId = id
         scheduleSave()
@@ -172,6 +195,10 @@ KCM.SimpleKCM {
     readonly property var templates: [
         { label: "llama.cpp",           name: "llama.cpp",           port: 8080,
           command: "llama-server --models-preset {CONFIG_FILE} --host {HOST} --port {PORT}" },
+        { label: "strata (launch preset)", name: "strata", port: 18888,
+          command: "strata launch --preset {PRESET} --no-tui --host {HOST} --port {PORT}" },
+        { label: "strata (serve)",        name: "strata", port: 18888,
+          command: "strata serve --profile {CONFIG_FILE} --host {HOST} --port {PORT}" },
         { label: "audio.cpp",           name: "audio.cpp",           port: 8081,
           command: "audiocpp_server --config {CONFIG_FILE} --host {HOST} --port {PORT}" },
         { label: "stable-diffusion.cpp", name: "stable-diffusion.cpp", port: 8082,
@@ -344,6 +371,7 @@ KCM.SimpleKCM {
                 required property string host
                 required property int port
                 required property string configFile
+                required property string preset
                 required property bool enabled
 
                 readonly property bool expanded: page.expandedId === sid
@@ -493,6 +521,36 @@ KCM.SimpleKCM {
                                     page.setField(card.index, "sid", slug)
                                     text = slug
                                     page.renameId(oldId, slug)
+                                }
+                            }
+                        }
+
+                        Labeled {
+                            label: i18n("Preset (strata launch):")
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Kirigami.Units.smallSpacing
+                                QQC2.ComboBox {
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    editable: true
+                                    placeholderText: i18n("strata launch profile name")
+                                    model: page.presetNames
+                                    // ComboBox.text is read-only; drive the
+                                    // displayed value via editText/index
+                                    currentIndex: page.presetNames.indexOf(card.preset)
+                                    editText: card.preset
+                                    onActivated: page.setField(card.index, "preset", String(model[index] || ""))
+                                    onEditTextChanged: if (editText !== card.preset)
+                                        page.setField(card.index, "preset", editText.trim())
+                                }
+                                QQC2.ToolButton {
+                                    icon.name: "view-refresh"
+                                    display: QQC2.AbstractButton.IconOnly
+                                    onClicked: page.fetchPresets()
+                                    QQC2.ToolTip.visible: hovered
+                                    QQC2.ToolTip.text: page.presetsError !== "" ? page.presetsError
+                                                                               : i18n("Reload strata presets")
                                 }
                             }
                         }

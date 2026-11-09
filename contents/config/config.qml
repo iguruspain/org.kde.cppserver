@@ -11,4 +11,9 @@ ConfigModel {
         icon: "view-history"
         source: "config/ConfigLogs.qml"
     }
+    ConfigCategory {
+        name: i18n("Stats")
+        icon: "speedometer-symbolic"
+        source: "config/ConfigStats.qml"
+    }
 }

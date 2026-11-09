@@ -28,5 +28,21 @@
         <entry name="logShowTps" type="Bool">
             <default>true</default>
         </entry>
+        <!-- Stats tab (live monitor) switches -->
+        <entry name="statShowEvents" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowTps" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowTokens" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowVram" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowHardware" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

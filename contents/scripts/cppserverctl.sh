@@ -12,9 +12,20 @@
 #   statusall <id>...         cfgmtime=N, then "<id> alive=1 pid= logfile=" / "<id> alive=0"
 #   logread <path> [lines]    tail a log inside the log root (path-validated)
 #   deps <binary>...          <binary>=OK|MISSING
+#   probe <url>               GET a local http(s) endpoint, print the raw
+#                             body (stats tab); error=unreachable|bad_url|
+#                             curl_missing|empty_body
+#   presets                   strata launch presets -> presets=<json>
+#                             (or error=strata_missing|presets_failed)
+#   gpu                       host counters: proc=<pid>:<mib> (per-process
+#                             VRAM via nvidia-smi), gpuused/gputotal/gpuutil/
+#                             gputemp/gpupow, ramused/ramtotal, cpu
 #
 # Config : ${XDG_CONFIG_HOME:-~/.config}/cppserver/servers.json
 # Runtime: ${XDG_CACHE_HOME:-~/.cache}/cppserver/logs/<id>.{log,pid}
+#          <id>.strata holds the slug of a `strata launch --preset` server's
+#          preset: the launcher exits while its engine keeps serving, so the
+#          pidfile is re-pointed at the engine found in strata's runtime state.
 set -uo pipefail
 
 cmd="${1:-}"
@@ -23,6 +34,7 @@ shift || true
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cppserver"
 CONFIG_FILE="$CONFIG_DIR/servers.json"
 LOG_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/cppserver/logs"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
 # Resolve bare binary names (llama-server, ...) like a login shell would:
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -37,6 +49,37 @@ ensure_log_root() {
 # Must match slugify() in logic.js (ids are already slugs; this is a safety net).
 slug() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g'
+}
+
+# ── strata launch ───────────────────────────────────────────────────────────
+# `strata launch --preset NAME --no-tui` is a short-lived launcher: it exits
+# once the engine answers, leaving the engine detached. To keep tracking the
+# real engine, start() records the preset slug in "<id>.strata" when the
+# command looks like that, and statusall re-points the pidfile at the engine.
+
+# Slug of the preset used by the command, "" when it does not use one.
+strata_preset_of() {
+    local name
+    name="$(printf '%s' "$1" | sed -nE 's/.*--preset[[:space:]]+"([^"]*)".*/\1/p')"
+    if [[ -z "$name" ]]; then
+        name="$(printf '%s' "$1" | sed -nE 's/.*--preset[[:space:]]+([^"[:space:]][^[:space:]]*).*/\1/p')"
+    fi
+    if [[ -n "$name" ]]; then slug "$name"; fi
+}
+
+# Live engine pid strata recorded for the launch profile, "" when none.
+strata_engine_pid() {
+    local slug="$1" f pid
+    if [[ -z "$slug" ]]; then return; fi
+    for f in "$STATE_DIR"/strata/runtime/launch-"$slug"-*.ready.json; do
+        [[ -r "$f" ]] || continue
+        pid="$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
+        if [[ -n "$pid" && -d "/proc/$pid" ]] &&
+           tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -qi strata; then
+            echo "$pid"
+            return
+        fi
+    done
 }
 
 # ── Config file ─────────────────────────────────────────────────────────────
@@ -116,9 +159,14 @@ start() {
         exit 2
     fi
     ensure_log_root
-    local logfile="$LOG_ROOT/$id.log" pidfile="$LOG_ROOT/$id.pid"
+    local logfile="$LOG_ROOT/$id.log" pidfile="$LOG_ROOT/$id.pid" marker="$LOG_ROOT/$id.strata"
+    local preset_slug=""
+    if [[ "$command" == *"strata launch"* && "$command" == *"--preset"* ]]; then
+        preset_slug="$(strata_preset_of "$command")"
+    fi
 
-    if [[ -n "$(read_pid "$pidfile")" ]]; then
+    if [[ -n "$(read_pid "$pidfile")" ]] ||
+       { [[ -n "$preset_slug" ]] && [[ -n "$(strata_engine_pid "$preset_slug")" ]]; }; then
         echo "error=already_running"
         exit 4
     fi
@@ -144,6 +192,11 @@ start() {
     fi
 
     printf '%s %s\n' "$pid" "$(proc_start "$pid")" > "$pidfile"
+    if [[ -n "$preset_slug" ]]; then
+        printf '%s\n' "$preset_slug" > "$marker"
+    else
+        rm -f "$marker" 2>/dev/null
+    fi
     echo "pid=$pid"
     echo "logfile=$logfile"
 }
@@ -156,7 +209,16 @@ stop() {
         exit 2
     fi
     ensure_log_root
-    local pidfile="$LOG_ROOT/$id.pid" pid
+    local pidfile="$LOG_ROOT/$id.pid" marker="$LOG_ROOT/$id.strata" pid eslug
+    # strata launch engine: ask strata itself to stop the profile first
+    # (cap it: strata waits for a graceful drain); the pid kill below is the
+    # fallback for anything left.
+    if [[ -r "$marker" ]] && command -v strata >/dev/null 2>&1; then
+        eslug="$(head -n 1 "$marker" 2>/dev/null)"
+        if [[ -n "$eslug" ]]; then
+            timeout 12 strata launch --stop --preset "$eslug" >/dev/null 2>&1 || true
+        fi
+    fi
     pid="$(read_pid "$pidfile")"
     if [[ -n "$pid" ]]; then
         local children=""
@@ -181,6 +243,7 @@ stop() {
         fi
     fi
     rm -f "$pidfile" 2>/dev/null
+    rm -f "$marker" 2>/dev/null
     echo "ok=1"
 }
 
@@ -195,8 +258,9 @@ rename() {
     ensure_log_root
     local old_pidfile="$LOG_ROOT/$old.pid" new_pidfile="$LOG_ROOT/$new.pid"
     local old_logfile="$LOG_ROOT/$old.log" new_logfile="$LOG_ROOT/$new.log"
+    local old_marker="$LOG_ROOT/$old.strata" new_marker="$LOG_ROOT/$new.strata"
     # Never clobber an existing <new>.* (a different server may own that id).
-    if [[ -e "$new_pidfile" || -e "$new_logfile" ]]; then
+    if [[ -e "$new_pidfile" || -e "$new_logfile" || -e "$new_marker" ]]; then
         echo "error=id_taken"
         exit 6
     fi
@@ -205,6 +269,7 @@ rename() {
     # new id without a restart.
     [[ -f "$old_pidfile" ]] && mv -f "$old_pidfile" "$new_pidfile"
     [[ -f "$old_logfile" ]] && mv -f "$old_logfile" "$new_logfile"
+    [[ -f "$old_marker" ]] && mv -f "$old_marker" "$new_marker"
     echo "ok=1"
 }
 
@@ -215,10 +280,20 @@ statusall() {
     fi
     ensure_log_root
     echo "cfgmtime=$(cfgmtime)"
-    local name id pid
+    local name id pid eslug epid
     for name in "$@"; do
         id="$(slug "$name")"
         pid="$(read_pid "$LOG_ROOT/$id.pid")"
+        if [[ -z "$pid" && -r "$LOG_ROOT/$id.strata" ]]; then
+            # strata launch server: the launcher exits while the engine keeps
+            # serving. Re-point the pidfile at the engine strata recorded.
+            eslug="$(head -n 1 "$LOG_ROOT/$id.strata" 2>/dev/null)"
+            epid="$(strata_engine_pid "$eslug")"
+            if [[ -n "$epid" ]]; then
+                printf '%s %s\n' "$epid" "$(proc_start "$epid")" > "$LOG_ROOT/$id.pid"
+                pid="$epid"
+            fi
+        fi
         if [[ -n "$pid" ]]; then
             printf '%s alive=1 pid=%s logfile=%s\n' "$id" "$pid" "$LOG_ROOT/$id.log"
         else
@@ -263,6 +338,87 @@ deps() {
     done
 }
 
+# Read-only HTTP GET used by the Stats tab (strata /health|/metrics,
+# llama-server /metrics...). Only the fetched body goes to stdout; every
+# failure is a single error= line with a nonzero exit, so the caller can
+# tell body and failure apart. curl has no default timeout: cap both.
+probe() {
+    local url="${1:-}"
+    if [[ -z "$url" ]]; then
+        echo "error=missing_url"
+        exit 2
+    fi
+    if [[ ! "$url" =~ ^https?://[^[:space:]]+$ ]]; then
+        echo "error=bad_url"
+        exit 2
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "error=curl_missing"
+        exit 3
+    fi
+    local body rc
+    body="$(curl -s -m 3 --connect-timeout 1 "$url" 2>/dev/null)"
+    rc=$?
+    if [[ $rc -ne 0 ]]; then
+        echo "error=unreachable"
+        exit 4
+    fi
+    if [[ -z "$body" ]]; then
+        echo "error=empty_body"
+        exit 4
+    fi
+    printf '%s\n' "$body"
+}
+
+# List strata's launch presets for the settings page ({PRESET} combobox).
+# The whole JSON answer rides on one key=value line; the UI parses it.
+presets() {
+    if ! command -v strata >/dev/null 2>&1; then
+        echo "error=strata_missing"
+        exit 3
+    fi
+    local out rc
+    out="$(timeout 10 strata launch --list-presets --output json 2>/dev/null)"
+    rc=$?
+    if [[ $rc -ne 0 || -z "$out" ]]; then
+        echo "error=presets_failed"
+        exit 4
+    fi
+    printf 'presets=%s\n' "$out"
+}
+
+# gpu: host + per-process counters for the live dashboard.
+# nvidia-smi supplies GPU totals and per-process VRAM (the pid from the
+# pidfile attributes each segment of the VRAM ring to its server); RAM
+# and CPU% come from /proc so the rings work without any NVIDIA driver.
+gpu() {
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits 2>/dev/null |
+        while IFS=, read -r p m; do
+            p="${p// /}"; m="${m// /}"
+            [[ "$p" =~ ^[0-9]+$ && "$m" =~ ^[0-9]+$ ]] && printf 'proc=%s:%s\n' "$p" "$m"
+        done
+        nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw \
+                   --format=csv,noheader,nounits 2>/dev/null | head -1 |
+        awk -F, '{gsub(/ /, "")
+                 if ($1+0 > 0)      print "gpuused=" $1+0
+                 if ($2+0 > 0)      print "gputotal=" $2+0
+                 if ($3 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gpuutil=" $3
+                 if ($4 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gputemp=" $4
+                 if ($5 ~ /^[0-9]+(\.[0-9]+)?$/)  print "gpupow=" $5}'
+    fi
+    awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2}
+         END{if (t) {print "ramtotal=" int(t/1024); print "ramused=" int((t-a)/1024)}}' /proc/meminfo
+    c() { awk '/^cpu /{n=0; for(i=2;i<=NF;i++)n+=$i; print n" "$5}' /proc/stat; }
+    local t1 i1 t2 i2
+    read -r t1 i1 <<<"$(c)"
+    sleep 0.15
+    read -r t2 i2 <<<"$(c)"
+    if (( t2 > t1 )); then
+        echo "cpu=$(( 100 * (t2 - t1 - (i2 - i1)) / (t2 - t1) ))"
+    fi
+}
+
 case "$cmd" in
     init)      init ;;
     cfgread)   cfgread ;;
@@ -273,6 +429,9 @@ case "$cmd" in
     statusall) statusall "$@" ;;
     logread)   logread "$@" ;;
     deps)      deps "$@" ;;
+    probe)     probe "$@" ;;
+    presets)   presets "$@" ;;
+    gpu)       gpu ;;
     *)
         echo "error=unknown_command"
         exit 1

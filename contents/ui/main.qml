@@ -69,6 +69,9 @@ PlasmoidItem {
     property bool loading: true
     property string errorMsg: ""
     property bool logsPaused: false
+    property var statsMap: ({})          // id -> { ep, kind, err, health, body, at }
+    property var statsTally: ({})        // id -> "model (vX)" (generic /health servers)
+    property var gpuInfo: ({})           // parseGpu(): per-pid VRAM + machine totals
 
     // Log view preferences (per-instance KConfig, see contents/config/main.xml).
     // Written by config/ConfigLogs.qml; the defensive coercions make a missing
@@ -87,6 +90,13 @@ PlasmoidItem {
     readonly property bool showStatWarnings: Plasmoid.configuration.logShowWarnings !== false
     readonly property bool showStatOom: Plasmoid.configuration.logShowOom !== false
     readonly property bool showStatTps: Plasmoid.configuration.logShowTps !== false
+
+    // Stats-tab monitor switches (config/ConfigStats.qml).
+    readonly property bool statShowEvents: Plasmoid.configuration.statShowEvents !== false
+    readonly property bool statShowTps: Plasmoid.configuration.statShowTps !== false
+    readonly property bool statShowTokens: Plasmoid.configuration.statShowTokens !== false
+    readonly property bool statShowVram: Plasmoid.configuration.statShowVram !== false
+    readonly property bool statShowHardware: Plasmoid.configuration.statShowHardware !== false
 
     // Servers shown in the widget: enabled ones, plus any disabled one that is
     // still running (so it can always be stopped).
@@ -125,7 +135,7 @@ PlasmoidItem {
     // ── Per-instance UI state (the only thing kept in plasmoid config) ─────
     function loadUiState() {
         var st = Logic.safeJsonParse(Plasmoid.configuration.uiJson, {})
-        activeTab = Number(st.activeTab) === 1 ? 1 : 0
+        activeTab = [1, 2].indexOf(Number(st.activeTab)) !== -1 ? Number(st.activeTab) : 0
         activeLogId = String(st.activeLogId || "")
     }
     function persistUiState() {
@@ -340,6 +350,101 @@ PlasmoidItem {
         })
     }
 
+    // ── Live stats (Stats tab) ─────────────────────────────────────────────
+    // One HTTP probe per running server per tick, through the same
+    // single-flight queue. Endpoint chain: /health first (tiny, identifies
+    // the server — strata answers {"service":"strata"}), then /metrics every
+    // later tick for strata and for llama-server (--metrics) — those two are
+    // probed at /metrics right away. Everything else stays on /health.
+    function pollStats() {
+        var m = {}
+        Object.keys(runningMap).forEach(function (id) {
+            var s = serverById(id)
+            if (!s) return
+            var url = Logic.browserUrl(s)
+            if (url === "") {
+                m[id] = { ep: "", kind: "none", err: "no_port", health: "", body: "", at: Date.now() }
+                return
+            }
+            var cur = statsMap[id]
+            var ep = "health"
+            var isLlama = false
+            if ((cur && cur.ep === "metrics") || (cur && cur.kind === "strata")) ep = "metrics"
+            else if (!cur) {
+                var bin = Logic.serverBinary(s.command, homeDir).split("/").pop().toLowerCase()
+                if (bin === "llama-server" || bin === "llama-serve") ep = "metrics"
+            }
+            if (ep === "metrics" && cur && cur.kind && cur.kind !== "strata") isLlama = true
+            else if (ep === "metrics" && !cur) {
+                var bin2 = Logic.serverBinary(s.command, homeDir).split("/").pop().toLowerCase()
+                isLlama = bin2 === "llama-server" || bin2 === "llama-serve"
+            }
+            var target = url + ep
+            run(Logic.scriptCmd() + " probe " + Logic.shQuote(target), function (code, out) {
+                applyProbe(id, ep, code, out, isLlama)
+            })
+        })
+        // one machine snapshot per tick: nvidia-smi (per-pid VRAM, GPU totals)
+        // + /proc (RAM, CPU%) — lets the rings work even without strata
+        run(Logic.scriptCmd() + " gpu", function (code, out) {
+            gpuInfo = code === 0 ? Logic.parseGpu(out) : {}
+        })
+        statsMap = m
+    }
+
+    function applyProbe(id, ep, code, out, isLlama) {
+        var body = String(out || "")
+        var entry = { ep: ep, kind: "none", err: "", health: "", body: "", log: "", at: Date.now() }
+        if (code !== 0) {
+            entry.err = body.indexOf("error=") === 0 ? body.slice(6) : "unreachable"
+        } else if (body.charAt(0) === "{") {
+            var j = Logic.safeJsonParse(body, null)
+            entry.kind = (j && j.service === "strata") ? "strata" : "json"
+            if (ep === "health") entry.health = body
+            else entry.body = body
+        } else if (body.indexOf("llm:") !== -1 || body.indexOf("llamacpp:") !== -1 || body.charAt(0) === "#") {
+            entry.kind = "llama"
+            entry.body = body
+        } else {
+            entry.err = "no_metrics"      // HTML error page, plain-text 404…
+        }
+        var sm = Object.assign({}, statsMap)
+        sm[id] = entry
+        statsMap = sm
+
+        // llama.cpp exposes metrics only with --metrics. The log tail is read
+        // either way: without metrics it is the only source, with them it still
+        // supplies n_ctx/usage and per-request rows that the counters lack.
+        if (ep === "metrics" && isLlama) {
+            var r = runningMap[id]
+            if (r && r.logfile) {
+                ctl("logread " + Logic.shQuote(r.logfile) + " 200", function (code2, out2) {
+                    if (code2 !== 0) return
+                    var cur = statsMap[id]
+                    if (!cur || cur.at !== entry.at) return   // newer probe won
+                    cur.log = out2
+                    // No Prometheus but a readable log: the log tail is a valid
+                    // llama stats source; keep the no_metrics hint for the chip.
+                    if (cur.kind !== "llama") cur.kind = "llama"
+                    var sm2 = Object.assign({}, statsMap)
+                    sm2[id] = cur
+                    statsMap = sm2
+                })
+            }
+        } else if (ep === "metrics" && entry.kind !== "llama" && entry.err === "") {
+            entry.err = "no_metrics"      // llama probe answered but not Prometheus
+            var smx = Object.assign({}, statsMap)
+            smx[id] = entry
+            statsMap = smx
+        }
+        // A generic JSON /health server has no model of its own in the stats
+        // parser; the version tally from its /health body labels the card.
+        var tal = Object.assign({}, statsTally)
+        if (entry.kind === "json" && entry.health) tal[id] = Logic.healthTally(entry.health)
+        else tal[id] = ""
+        statsTally = tal
+    }
+
     // ── Timers ─────────────────────────────────────────────────────────────
     Timer {
         interval: root.expanded ? 2000 : 5000
@@ -352,6 +457,12 @@ PlasmoidItem {
         running: root.expanded && root.activeTab === 1 && !root.logsPaused && root.activeLogId !== ""
         repeat: true
         onTriggered: root.tailLog()
+    }
+    Timer {
+        interval: 1000
+        running: root.expanded && root.activeTab === 2
+        repeat: true
+        onTriggered: root.pollStats()
     }
     onExpandedChanged: if (expanded && homeDir !== "") checkStatuses()
 
