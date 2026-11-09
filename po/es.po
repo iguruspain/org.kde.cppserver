@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-09 22:14+0100\n"
+"POT-Creation-Date: 2026-11-09 22:58+0100\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -95,7 +95,7 @@ msgid "No servers match"
 msgstr "Ningún servidor coincide"
 
 #: contents/ui/MainPage.qml:186 contents/ui/MainPage.qml:432
-#: contents/ui/MainPage.qml:1199 contents/ui/main.qml:54
+#: contents/ui/MainPage.qml:1241 contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr "No hay servidores configurados"
 
@@ -177,7 +177,7 @@ msgstr "(esperando salida…)"
 msgid "Server not running – start it from the Servers tab."
 msgstr "Servidor detenido – inícialo desde la pestaña Servidores."
 
-#: contents/ui/MainPage.qml:433 contents/ui/MainPage.qml:1201
+#: contents/ui/MainPage.qml:433 contents/ui/MainPage.qml:1243
 msgid "Add servers in the widget settings."
 msgstr "Añade servidores en los ajustes del widget."
 
@@ -201,128 +201,132 @@ msgstr "%1 / %2 líneas"
 msgid "invalid regex"
 msgstr "regex no válida"
 
-#: contents/ui/MainPage.qml:595
+#: contents/ui/MainPage.qml:603
 msgid "other"
 msgstr "otros"
 
-#: contents/ui/MainPage.qml:607
+#: contents/ui/MainPage.qml:615
 msgid "prompt"
 msgstr "prompt"
 
-#: contents/ui/MainPage.qml:610
+#: contents/ui/MainPage.qml:618
 msgid "out"
 msgstr "salida"
 
-#: contents/ui/MainPage.qml:697
+#: contents/ui/MainPage.qml:709
 msgid "Speed"
 msgstr "Velocidad"
 
-#: contents/ui/MainPage.qml:700
+#: contents/ui/MainPage.qml:712
 msgid "mean %1 tok/s"
 msgstr "media %1 tok/s"
 
-#: contents/ui/MainPage.qml:707
+#: contents/ui/MainPage.qml:719
 msgid "GPU temp"
 msgstr "Temp GPU"
 
-#: contents/ui/MainPage.qml:712
+#: contents/ui/MainPage.qml:724
 msgid "GPU power"
 msgstr "Potencia GPU"
 
-#: contents/ui/MainPage.qml:714
+#: contents/ui/MainPage.qml:726
 msgid "limit %1 W"
 msgstr "límite %1 W"
 
-#: contents/ui/MainPage.qml:717
+#: contents/ui/MainPage.qml:729
 msgid "Disk"
 msgstr "Disco"
 
-#: contents/ui/MainPage.qml:727
+#: contents/ui/MainPage.qml:739
 msgid "no HTTP port (set host + port to monitor)"
 msgstr "sin puerto HTTP (define host + puerto para monitorizar)"
 
-#: contents/ui/MainPage.qml:730
+#: contents/ui/MainPage.qml:742
 msgid "no metrics from its HTTP API%1"
 msgstr "sin métricas en su API HTTP%1"
 
-#: contents/ui/MainPage.qml:740
+#: contents/ui/MainPage.qml:752
 msgid "Live monitor"
 msgstr "Monitor en vivo"
 
-#: contents/ui/MainPage.qml:747
+#: contents/ui/MainPage.qml:759
 msgid "HTTP probes every second while this tab is open"
 msgstr "Sondas HTTP cada segundo mientras esta pestaña está abierta"
 
-#: contents/ui/MainPage.qml:754
+#: contents/ui/MainPage.qml:766
 msgid "Configure what the monitor shows…"
 msgstr "Configura qué muestra el monitor…"
 
-#: contents/ui/MainPage.qml:791
+#: contents/ui/MainPage.qml:803
 msgid "CPU"
 msgstr "CPU"
 
-#: contents/ui/MainPage.qml:795
+#: contents/ui/MainPage.qml:807
 msgid "%1 cores / %2 threads"
 msgstr "%1 núcleos / %2 hilos"
 
-#: contents/ui/MainPage.qml:797
+#: contents/ui/MainPage.qml:809
 msgid "%1 cores"
 msgstr "%1 núcleos"
 
-#: contents/ui/MainPage.qml:805
+#: contents/ui/MainPage.qml:817
 msgid "GPU"
 msgstr "GPU"
 
-#: contents/ui/MainPage.qml:815
+#: contents/ui/MainPage.qml:827
 msgid "VRAM"
 msgstr "VRAM"
 
-#: contents/ui/MainPage.qml:829
+#: contents/ui/MainPage.qml:841
 msgid "RAM"
 msgstr "RAM"
 
-#: contents/ui/MainPage.qml:939
+#: contents/ui/MainPage.qml:951
 msgid "generating %1 / %2 tok"
 msgstr "generando %1 / %2 tok"
 
-#: contents/ui/MainPage.qml:942
+#: contents/ui/MainPage.qml:954
 msgid "reading prompt %1 / %2 tok"
 msgstr "leyendo prompt %1 / %2 tok"
 
+#: contents/ui/MainPage.qml:960
+msgid "generating %1 tok"
+msgstr "generando %1 tok"
+
 #. i18n(): they stay in English everywhere.
-#: contents/ui/MainPage.qml:1074
+#: contents/ui/MainPage.qml:1116
 msgid "requests"
 msgstr "peticiones"
 
-#: contents/ui/MainPage.qml:1077
+#: contents/ui/MainPage.qml:1119
 msgid "reused"
 msgstr "reutilizado"
 
-#: contents/ui/MainPage.qml:1078
+#: contents/ui/MainPage.qml:1120
 msgid "context"
 msgstr "contexto"
 
-#: contents/ui/MainPage.qml:1176
+#: contents/ui/MainPage.qml:1218
 msgid "%1 req total"
 msgstr "%1 petic. total"
 
-#: contents/ui/MainPage.qml:1178
+#: contents/ui/MainPage.qml:1220
 msgid "%1 tok in"
 msgstr "%1 tok ent."
 
-#: contents/ui/MainPage.qml:1179
+#: contents/ui/MainPage.qml:1221
 msgid "%1 tok out"
 msgstr "%1 tok sal."
 
-#: contents/ui/MainPage.qml:1182
+#: contents/ui/MainPage.qml:1224
 msgid "%1 reused (%2%)"
 msgstr "%1 reutilizados (%2%)"
 
-#: contents/ui/MainPage.qml:1199
+#: contents/ui/MainPage.qml:1241
 msgid "No servers running"
 msgstr "No hay servidores en ejecución"
 
-#: contents/ui/MainPage.qml:1202
+#: contents/ui/MainPage.qml:1244
 msgid "Start a server to see its live stats here."
 msgstr "Inicia un servidor para ver aquí sus estadísticas en vivo."
 
@@ -614,18 +618,18 @@ msgstr "Iniciar todos"
 msgid "Stop all"
 msgstr "Detener todos"
 
-#: contents/ui/main.qml:219
+#: contents/ui/main.qml:220
 msgid "Could not read %1"
 msgstr "No se pudo leer %1"
 
-#: contents/ui/main.qml:224
+#: contents/ui/main.qml:225
 msgid "%1 is not valid JSON (expected a list of servers)"
 msgstr "%1 no es un JSON válido (se esperaba una lista de servidores)"
 
-#: contents/ui/main.qml:287
+#: contents/ui/main.qml:288
 msgid "Empty command for %1"
 msgstr "Comando vacío para %1"
 
-#: contents/ui/main.qml:297
+#: contents/ui/main.qml:298
 msgid "Failed to start %1"
 msgstr "No se pudo iniciar %1"

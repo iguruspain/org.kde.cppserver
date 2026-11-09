@@ -953,8 +953,17 @@ ColumnLayout {
                                     if (st.promptTotal > 0 && st.promptRead >= 0)
                                         return i18n("reading prompt %1 / %2 tok",
                                                     Logic.fmtTokens(st.promptRead), Logic.fmtTokens(st.promptTotal))
+                                    // llama.cpp's INFO log carries no per-request
+                                    // token target: no end to measure against —
+                                    // the live accepted-token count instead
+                                    if (st.state === "generating" && st.genNow >= 0)
+                                        return i18n("generating %1 tok", Logic.fmtTokens(st.genNow))
                                     return ""
                                 }
+                                // no measurable progress but actively generating:
+                                // the bar slides (honestly indeterminate)
+                                readonly property bool slide: srv.st !== null
+                                    && srv.st.state === "generating" && srv.progress <= 0
 
                                 ColumnLayout {
                                     id: srvCol
@@ -1059,6 +1068,27 @@ ColumnLayout {
                                                    ? Kirigami.Theme.positiveTextColor
                                                    : Kirigami.Theme.highlightColor
                                             Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutQuad } }
+                                        }
+                                        // unknown target (llama.cpp decode): a
+                                        // block slides back and forth — motion
+                                        // without pretending measured progress
+                                        Rectangle {
+                                            id: slideFill
+                                            width: genBar.width * 0.28
+                                            height: genBar.height
+                                            radius: genBar.radius
+                                            color: Kirigami.Theme.positiveTextColor
+                                            visible: srv.slide
+                                            x: 0
+                                            SequentialAnimation {
+                                                loops: Animation.Infinite
+                                                running: srv.slide
+                                                NumberAnimation { target: slideFill; property: "x"
+                                                    to: Math.max(0, genBar.width - slideFill.width)
+                                                    duration: 900; easing.type: Easing.InOutQuad }
+                                                NumberAnimation { target: slideFill; property: "x"
+                                                    to: 0; duration: 900; easing.type: Easing.InOutQuad }
+                                            }
                                         }
                                     }
                                     PlasmaComponents.Label {
