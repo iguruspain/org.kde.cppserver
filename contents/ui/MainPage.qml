@@ -279,6 +279,10 @@ ColumnLayout {
                     id: logCombo
                     Layout.fillWidth: false
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 8
+                    // The Plasma ComboBox wrapper binds implicitWidth to its
+                    // content and loops; override with a plain value so the
+                    // layout sizes us via preferredWidth instead.
+                    implicitWidth: Layout.preferredWidth
                     // The Plasma ComboBox wrapper loops when a layout binding
                     // feeds implicitWidth back, so size it imperatively from
                     // the measurer's text instead.

@@ -534,7 +534,6 @@ KCM.SimpleKCM {
                                     Layout.fillWidth: true
                                     Layout.minimumWidth: 0
                                     editable: true
-                                    placeholderText: i18n("strata launch profile name")
                                     model: page.presetNames
                                     // ComboBox.text is read-only; drive the
                                     // displayed value via editText/index

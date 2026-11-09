@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-09 14:48+0100\n"
+"POT-Creation-Date: 2026-11-09 15:01+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -61,7 +61,7 @@ msgstr ""
 msgid "Not found in PATH: %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:144 contents/ui/MainPage.qml:436
+#: contents/ui/MainPage.qml:144 contents/ui/MainPage.qml:440
 msgid "pid %1"
 msgstr ""
 
@@ -93,8 +93,8 @@ msgstr ""
 msgid "No servers match"
 msgstr ""
 
-#: contents/ui/MainPage.qml:186 contents/ui/MainPage.qml:420
-#: contents/ui/MainPage.qml:1293 contents/ui/main.qml:54
+#: contents/ui/MainPage.qml:186 contents/ui/MainPage.qml:424
+#: contents/ui/MainPage.qml:1297 contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr ""
 
@@ -136,223 +136,223 @@ msgstr ""
 msgid "Min speed: %1 t/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:313
+#: contents/ui/MainPage.qml:317
 msgid "Pause live updates (to select text)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:321
+#: contents/ui/MainPage.qml:325
 msgid "Follow the end of the log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:328
+#: contents/ui/MainPage.qml:332
 msgid "Copy log"
 msgstr ""
 
-#: contents/ui/MainPage.qml:345
+#: contents/ui/MainPage.qml:349
 msgid "Filter log lines…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:351
+#: contents/ui/MainPage.qml:355
 msgid "Interpret the filter as a regular expression"
 msgstr ""
 
-#: contents/ui/MainPage.qml:370
+#: contents/ui/MainPage.qml:374
 msgid "Log file: %1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:405
+#: contents/ui/MainPage.qml:409
 msgid "(no lines match the filter)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:406
+#: contents/ui/MainPage.qml:410
 msgid "(waiting for output…)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:407
+#: contents/ui/MainPage.qml:411
 msgid "Server not running – start it from the Servers tab."
 msgstr ""
 
-#: contents/ui/MainPage.qml:421 contents/ui/MainPage.qml:1295
+#: contents/ui/MainPage.qml:425 contents/ui/MainPage.qml:1299
 msgid "Add servers in the widget settings."
 msgstr ""
 
-#: contents/ui/MainPage.qml:435
+#: contents/ui/MainPage.qml:439
 msgid "No server selected"
 msgstr ""
 
-#: contents/ui/MainPage.qml:437
+#: contents/ui/MainPage.qml:441
 msgid "Stopped"
 msgstr ""
 
-#: contents/ui/MainPage.qml:443
+#: contents/ui/MainPage.qml:447
 msgid "%1 t/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:449
+#: contents/ui/MainPage.qml:453
 msgid "%1 / %2 lines"
 msgstr ""
 
-#: contents/ui/MainPage.qml:455
+#: contents/ui/MainPage.qml:459
 msgid "invalid regex"
 msgstr ""
 
-#: contents/ui/MainPage.qml:572
+#: contents/ui/MainPage.qml:576
 msgid "other"
 msgstr ""
 
-#: contents/ui/MainPage.qml:584
+#: contents/ui/MainPage.qml:588
 msgid "prompt"
 msgstr ""
 
-#: contents/ui/MainPage.qml:587
+#: contents/ui/MainPage.qml:591
 msgid "out"
 msgstr ""
 
-#: contents/ui/MainPage.qml:684
+#: contents/ui/MainPage.qml:688
 msgid "Speed"
 msgstr ""
 
-#: contents/ui/MainPage.qml:687
+#: contents/ui/MainPage.qml:691
 msgid "mean %1 tok/s"
 msgstr ""
 
-#: contents/ui/MainPage.qml:694
+#: contents/ui/MainPage.qml:698
 msgid "GPU temp"
 msgstr ""
 
-#: contents/ui/MainPage.qml:699
+#: contents/ui/MainPage.qml:703
 msgid "GPU power"
 msgstr ""
 
-#: contents/ui/MainPage.qml:701
+#: contents/ui/MainPage.qml:705
 msgid "limit %1 W"
 msgstr ""
 
-#: contents/ui/MainPage.qml:704
+#: contents/ui/MainPage.qml:708
 msgid "Disk"
 msgstr ""
 
-#: contents/ui/MainPage.qml:714
+#: contents/ui/MainPage.qml:718
 msgid "no HTTP port (set host + port to monitor)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:717
+#: contents/ui/MainPage.qml:721
 msgid "no metrics from its HTTP API%1"
 msgstr ""
 
-#: contents/ui/MainPage.qml:727
+#: contents/ui/MainPage.qml:731
 msgid "Live monitor"
 msgstr ""
 
-#: contents/ui/MainPage.qml:734
+#: contents/ui/MainPage.qml:738
 msgid "HTTP probes every second while this tab is open"
 msgstr ""
 
-#: contents/ui/MainPage.qml:741
+#: contents/ui/MainPage.qml:745
 msgid "Configure what the monitor shows…"
 msgstr ""
 
-#: contents/ui/MainPage.qml:786
+#: contents/ui/MainPage.qml:790
 msgid "generating %1 / %2 tok"
 msgstr ""
 
-#: contents/ui/MainPage.qml:789
+#: contents/ui/MainPage.qml:793
 msgid "reading prompt %1 / %2 tok"
 msgstr ""
 
-#: contents/ui/MainPage.qml:918
+#: contents/ui/MainPage.qml:922
 msgid "req"
 msgstr ""
 
-#: contents/ui/MainPage.qml:919
+#: contents/ui/MainPage.qml:923
 msgid "tok in"
 msgstr ""
 
-#: contents/ui/MainPage.qml:920
+#: contents/ui/MainPage.qml:924
 msgid "tok out"
 msgstr ""
 
-#: contents/ui/MainPage.qml:921
+#: contents/ui/MainPage.qml:925
 msgid "reused"
 msgstr ""
 
-#: contents/ui/MainPage.qml:922
+#: contents/ui/MainPage.qml:926
 msgid "context"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1045
+#: contents/ui/MainPage.qml:1049
 msgid "Machine"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1062
+#: contents/ui/MainPage.qml:1066
 msgid "CPU"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1065
+#: contents/ui/MainPage.qml:1069
 msgid "%1 cores"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1072
+#: contents/ui/MainPage.qml:1076
 msgid "GPU load"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1081
+#: contents/ui/MainPage.qml:1085
 msgid "VRAM"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1093
+#: contents/ui/MainPage.qml:1097
 msgid "RAM"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1232
+#: contents/ui/MainPage.qml:1236
 msgid "Time"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1233
+#: contents/ui/MainPage.qml:1237
 msgid "Server"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1234
+#: contents/ui/MainPage.qml:1238
 msgid "State"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1235
+#: contents/ui/MainPage.qml:1239
 msgid "In"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1236
+#: contents/ui/MainPage.qml:1240
 msgid "Reused"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1237
+#: contents/ui/MainPage.qml:1241
 msgid "Out"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1239
+#: contents/ui/MainPage.qml:1243
 msgid "Dur"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1270
+#: contents/ui/MainPage.qml:1274
 msgid "%1 req total"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1272
+#: contents/ui/MainPage.qml:1276
 msgid "%1 tok in"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1273
+#: contents/ui/MainPage.qml:1277
 msgid "%1 tok out"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1276
+#: contents/ui/MainPage.qml:1280
 msgid "%1 reused (%2%)"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1293
+#: contents/ui/MainPage.qml:1297
 msgid "No servers running"
 msgstr ""
 
-#: contents/ui/MainPage.qml:1296
+#: contents/ui/MainPage.qml:1300
 msgid "Start a server to see its live stats here."
 msgstr ""
 
@@ -522,51 +522,47 @@ msgstr ""
 msgid "Preset (strata launch):"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:537
-msgid "strata launch profile name"
-msgstr ""
-
-#: contents/ui/config/ConfigServers.qml:553
+#: contents/ui/config/ConfigServers.qml:552
 msgid "Reload strata presets"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:559
+#: contents/ui/config/ConfigServers.qml:558
 msgid "Command:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:571
+#: contents/ui/config/ConfigServers.qml:570
 msgid "Host / Port:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:588
+#: contents/ui/config/ConfigServers.qml:587
 msgid "0 = not used"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:594
+#: contents/ui/config/ConfigServers.qml:593
 msgid "Config file:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:608
+#: contents/ui/config/ConfigServers.qml:607
 msgid "Browse…"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:615
+#: contents/ui/config/ConfigServers.qml:614
 msgid "Will run:"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:628
+#: contents/ui/config/ConfigServers.qml:627
 msgid "(empty)"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:656
+#: contents/ui/config/ConfigServers.qml:655
 msgid "Saving…"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:657
+#: contents/ui/config/ConfigServers.qml:656
 msgid "Not saved"
 msgstr ""
 
-#: contents/ui/config/ConfigServers.qml:658
+#: contents/ui/config/ConfigServers.qml:657
 msgid "Changes are saved automatically to %1"
 msgstr ""
 
