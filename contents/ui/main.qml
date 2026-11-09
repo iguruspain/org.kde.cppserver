@@ -403,7 +403,10 @@ PlasmoidItem {
             // series falls back to zero like strata's tok_s history
             var samp = -1
             Object.keys(runningMap).forEach(function (sid) {
-                if (!runningMap[sid] || !runningMap[sid].alive) return
+                // runningMap only EVER contains live servers (rebuilt from
+                // statusall's alive entries as { pid, logfile }) - there is
+                // no ".alive" field to consult
+                if (!runningMap[sid]) return
                 var lv = statsLiveMaps[sid]
                 var v = (lv && lv.active && lv.tps > 0) ? lv.tps : 0
                 if (v > samp) samp = v

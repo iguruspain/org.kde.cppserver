@@ -562,7 +562,7 @@ ColumnLayout {
                     var b = Kirigami.Theme.neutralTextColor
                     var t = count > 1 ? i / (count - 1) : 0
                     return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
-                                   a.b + (b.b - a.b) * t, 0.30)
+                                   a.b + (b.b - a.b) * t, 1)
                 }
 
                 // VRAM ring segments — who holds each slice, best source per
