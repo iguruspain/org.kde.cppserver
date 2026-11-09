@@ -172,6 +172,12 @@ const OOM_RE   = /out of (video |host )?memory|cannot allocate|memory allocation
 const ERROR_RE = /\b(errors?|failed?|failure|fatal|aborted?|panic|exception|segfault|segmentation fault|core dumped|critical|backtrace)\b|^\s*(?:\[\d+\] )?\d+\.\d+\.\d+\.\d+ E /i;
 const WARN_RE  = /warn(ing|s|ed)?\b|deprecat|^\s*(?:\[\d+\] )?\d+\.\d+\.\d+\.\d+ W /i;
 const TPS_RE   = /([0-9]+(?:\.[0-9]+)?)\s*t\/s\b/g;
+// Any line bearing a speed measurement (llama prints tg/tg_3s/at as "N t/s";
+// the eval/total block spells it out as "tokens per second" and is excluded).
+// Non-global: for .test().
+const TPS_LINE_RE = /[0-9]+(?:\.[0-9]+)?\s*t\/s/;
+// Ends a generation burst: after it any t/s in the tail is history.
+const STOP_PROC_RE = /\bstop processing\b/;
 // Lines that mark a (re)load of the model in llama.cpp logs (router/preset
 // swaps and classic single-model loads). Cumulative t/s min/max restart after
 // the last occurrence in the visible tail.
@@ -180,7 +186,7 @@ const MODEL_CHANGE_RE = /llama_server:\s*model loaded|load_model:\s*loading mode
 function logStats(text) {
     const lines = String(text || "").split("\n");
     let oom = 0, errors = 0, warnings = 0;
-    let curTps = 0, minTps = 0, maxTps = 0;
+    let curTps = 0, minTps = 0, maxTps = 0, lastTpsIdx = -1;
     for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
         if (l === "") continue;
@@ -196,11 +202,24 @@ function logStats(text) {
         while ((m = TPS_RE.exec(l)) !== null) value = Number(m[1]);
         if (value > 0) {
             curTps = value;
+            lastTpsIdx = i;
             if (minTps === 0 || value < minTps) minTps = value;
             if (value > maxTps) maxTps = value;
         }
     }
-    return { oom: oom, errors: errors, warnings: warnings, curTps: curTps, minTps: minTps, maxTps: maxTps };
+    // Is curTps STILL the live figure? llama emits a t/s line every ~3 s
+    // while generating and then falls silent, so position in the tail says
+    // nothing — the generation burst is over as soon as "stop processing"
+    // lands after the last speed line (a killed server has no stop line,
+    // but its caller already gates on the pid being alive).
+    let tpsFresh = lastTpsIdx >= 0;
+    if (tpsFresh) {
+        for (let j = lastTpsIdx + 1; j < lines.length; j++) {
+            if (STOP_PROC_RE.test(lines[j])) { tpsFresh = false; break; }
+        }
+    }
+    return { oom: oom, errors: errors, warnings: warnings, curTps: curTps,
+             minTps: minTps, maxTps: maxTps, tpsFresh: tpsFresh };
 }
 
 // ── Log line highlighting ────────────────────────────────────────────────
@@ -246,14 +265,15 @@ function colorToCss(color) {
 }
 
 // HTML for a RichText TextArea: the lines logStats() counts (OOM/error in
-// errorColor, warnings in warningColor) get a colored <span>; when a filter
-// is active (non-empty filterText) the matching substrings additionally get
+// errorColor, warnings in warningColor, speed lines in the optional
+// tpsColor) get a colored <span>; when a filter is active (non-empty
+// filterText) the matching substrings additionally get
 // a matchColor background and matchTextColor text, like the native text
 // selection. Escapes & < > and joins lines with <br>, because a bare newline
 // is collapsed by the rich-text parser. Empty color args return the text
 // unchanged so callers can keep a PlainText fallback.
 function highlightLog(text, errorColor, warningColor, filterText, useRegex,
-                       matchColor, matchTextColor) {
+                       matchColor, matchTextColor, tpsColor) {
     const t = String(text || "");
     if (!errorColor || !warningColor) return t;
     const esc = function (s) {
@@ -287,6 +307,7 @@ function highlightLog(text, errorColor, warningColor, filterText, useRegex,
         if (l !== "" && !EXCEPT_RE.test(l)) {
             if (OOM_RE.test(l) || ERROR_RE.test(l)) color = errorColor;
             else if (WARN_RE.test(l)) color = warningColor;
+            else if (tpsColor && TPS_LINE_RE.test(l)) color = tpsColor;
         }
         out.push(color === "" ? html
                                : '<span style="color:' + colorToCss(color) + ';">' + html + "</span>");
@@ -624,7 +645,9 @@ function parseStats(entry, seen, extra) {
         // without --metrics there are no counters at all: fill every still-empty
         // field from the log tail (print_timing lines).
         if (e.log) {
-            const ls = { reqs: [], meanTps: -1, tps: -1 };
+            const ls = { reqs: [], meanTps: -1, tps: -1, reusedTok: -1,
+                         genNow: -1, promptRead: -1, promptTotal: 0,
+                         prefillTps: -1 };
             llamaLogStats(e.log, ls, seen, Math.floor(Date.now() / 1000));
             if (!s.model && ls.model) s.model = ls.model;
             // the load marker usually sits far above any tail window; the
@@ -637,7 +660,18 @@ function parseStats(entry, seen, extra) {
             if (s.outTok < 0 && ls.outTok >= 0) s.outTok = ls.outTok;
             if (s.tps < 0 && ls.tps >= 0) s.tps = ls.tps;
             if (s.meanTps < 0 && ls.meanTps >= 0) s.meanTps = ls.meanTps;
+            if (s.reusedTok < 0 && ls.reusedTok >= 0) s.reusedTok = ls.reusedTok;
             if (s.reqs.length === 0 && ls.reqs.length) s.reqs = ls.reqs;
+            // live request state from the print_timing stream: generation
+            // count, prefill progress (the "prompt processing, progress =
+            // 0.10" lines) and prefill speed fill the same card slots a
+            // strata server fills from its /metrics live section
+            if (s.genNow < 0 && ls.genNow >= 0) s.genNow = ls.genNow;
+            if (s.promptTotal <= 0 && ls.promptTotal > 0) {
+                s.promptTotal = ls.promptTotal;
+                if (s.promptRead < 0 && ls.promptRead >= 0) s.promptRead = ls.promptRead;
+            }
+            if (s.prefillTps < 0 && ls.prefillTps > 0) s.prefillTps = ls.prefillTps;
             if (s.state === "idle" && ls.active) s.state = "generating";
             s.active = s.active || ls.active;
             if (ls.logVramUsedMib >= 0) s.logVramUsedMib = ls.logVramUsedMib;
@@ -690,20 +724,38 @@ function mergeReqs(entries, max) {
 }
 
 // llama.cpp without --metrics: derive the same fields from its log tail.
+// One ordered pass merged per task id: requests are BORN at launch and
+// updated live, not only when they finish (what the old scanner saw).
 // Recognized lines (several llama.cpp generations):
 //   llama_context: n_ctx  =  8192                       -> ctxMax
 //   loading model ['/from'] '/x/y.gguf'                 -> model (marker may
 //                                                        sit above the tail:
 //                                                        see logread markers)
-//   slot print_timing: ... cur_n = 14681                -> live ctxUsed
-//   cached n_tokens / stop processing: n_tokens = N     -> live ctxUsed
-//                                                        (new builds print no cur_n)
-//   slot print_timing: ... | total time = N ms / M tokens (per task id)
-//                                                        -> finished requests
-//   slot print_timing: ... prompt eval time = T ms / P tokens
-//   slot print_timing: ...        eval time = T ms / O tokens
-//   ... cur speed = 45.2 | avg speed = 43.2 (newer builds)
-//   ... avg speed = 43.2 t/s
+//   slot ... task N | processing task                   -> request opened
+//   slot ... task N | new prompt, ... task.n_tokens = P -> prompt tokens
+//   slot ... task N | prompt processing, n_tokens = R, progress = F,
+//                  t = ... s / X tokens per second      -> live prefill
+//                                                        progress + rate
+//   slot ... task N | n_gen = G, tg = A t/s, tg_3s = B t/s
+//                                                        -> live decode: G
+//                                                        accepted tokens,
+//                                                        avg A, last-3s B
+//                                                        (what the webui
+//                                                        charts)
+//   slot ... task N | n_decoded = G , at = A t/s        -> same, older builds
+//   slot ... task N | prompt eval time = T ms / K tokens (... , X t/s)
+//                                                        -> K processed: the
+//                                                        P-K rest came from
+//                                                        the prompt cache
+//   slot ... task N |        eval time = T ms / K tokens (... , X t/s)
+//   slot ... task N |       total time = T ms           -> finished
+//   slot ... task N | stop processing: n_tokens = C, truncated = X
+//                                                        -> slot released
+//   ... cur speed = 45.2 | avg speed = 43.2             -> legacy rates
+//   slot print_timing: ... cur_n = 14681                -> legacy live ctx
+// With speculative decoding the "... tokens per second" the eval line
+// prints counts DRAFT tokens too (it says 53 t/s for ~44 real): the
+// n_gen/tg series counts accepted tokens only — those win when present.
 function llamaLogStats(text, s, seen, now) {
     const t = String(text || "");
     let m;
@@ -714,70 +766,122 @@ function llamaLogStats(text, s, seen, now) {
     m = /loading model(?: from)? '([^']*)'/.exec(t);
     if (m) s.model = String(m[1]).split("/").pop();
 
-    const reCur = /cur_n\s*=\s*(\d+)/g;
-    let used = -1;
-    while ((m = reCur.exec(t)) !== null) used = Math.max(used, Number(m[1]));
-    const reTot = /\|\s*total time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
-    const perTask = {};
+    // per-task records in first-seen order — tail order is the only
+    // ordering llama.cpp gives (its timestamps are boot-relative)
+    const tasks = {};
     const order = [];
-    let lastTot = null;
-    while ((m = reTot.exec(t)) !== null) {
-        lastTot = { ms: Number(m[1]), tok: Number(m[2]) };
+    function rec(id) {
+        let r = tasks[id];
+        if (!r) {
+            r = tasks[id] = {
+                open: false, done: false, inTok: -1, procTok: -1, gen: -1,
+                tg: -1, tg3: -1, pRead: -1, pTot: 0, pRate: -1, promptMs: -1,
+                evalMs: -1, evalTok: -1, evalRate: -1, totalMs: -1,
+                relTok: -1, trunc: -1
+            };
+            order.push(id);
+        }
+        return r;
     }
-    // new builds print no cur_n at all: the last n_tokens mention in the
-    // tail (cached prefix, context checkpoint, "stop processing: n_tokens")
-    // is the most recent reading of what the slot actually holds — later
-    // lines win over earlier ones, and over the older total-time estimate.
-    if (used < 0) {
-        const reNtok = /\bn_tokens\s*=\s*(\d+)/g;
-        while ((m = reNtok.exec(t)) !== null) used = Number(m[1]);
-    }
-    if (used < 0 && lastTot) used = lastTot.tok;
-    s.ctxUsed = used;
 
-    // a generation is live between "processing task" (launch) and the
-    // matching "stop processing" (release): whichever comes last wins
-    const reProc = /\b(?:stop processing|processing task)\b/g;
-    let lastOpen = -1, lastClose = -1;
-    while ((m = reProc.exec(t)) !== null) {
-        if (m[0] === "stop processing") lastClose = m.index;
-        else lastOpen = m.index;
+    const lines = t.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+        const tm = /\btask (\d+)\b/.exec(lines[i]);
+        if (!tm) continue;                  // "task -1" chatter carries no data
+        const l = lines[i];
+        const r = rec(tm[1]);
+        let g;
+        if ((g = /\bnew prompt,.*\btask\.n_tokens =\s*(\d+)/.exec(l))) {
+            r.inTok = Number(g[1]);
+        } else if ((g = /\binit sampler\b.*\btotal =\s*(\d+)/.exec(l))) {
+            if (r.inTok < 0) r.inTok = Number(g[1]);
+        } else if ((g = /\bprocessing task\b/.exec(l))) {
+            r.open = true;
+        } else if ((g = /\bprompt processing, n_tokens =\s*(\d+),\s*progress =\s*([0-9.]+)/.exec(l))) {
+            r.pRead = Number(g[1]);
+            const fr = Number(g[2]);
+            if (fr > 0) r.pTot = Math.round(r.pRead / fr);
+            const rate = /([0-9.]+) tokens per second/.exec(l.slice(g.index + g[0].length));
+            if (rate) r.pRate = Number(rate[1]);
+        } else if ((g = /\bn_gen =\s*(\d+)(?:\s*,\s*tg =\s*([0-9.]+)\s*(?:t\/s)?)?(?:\s*,\s*tg_3s =\s*([0-9.]+))?/.exec(l))) {
+            r.gen = Number(g[1]);
+            if (g[2] !== undefined) r.tg = Number(g[2]);
+            if (g[3] !== undefined) r.tg3 = Number(g[3]);
+        } else if ((g = /\bn_decoded =\s*(\d+)\s*,\s*at =\s*([0-9.]+)/.exec(l))) {
+            r.gen = Number(g[1]);
+            r.tg = Number(g[2]);
+        } else if ((g = /\bprompt eval time =\s*([0-9.]+) ms \/ \s*(\d+) tokens(?:[^\n]*?,\s*([0-9.]+) tokens per second)?/.exec(l))) {
+            r.promptMs = Number(g[1]);
+            r.procTok = Number(g[2]);
+            if (g[3] !== undefined) r.pRate = Number(g[3]);
+        } else if ((g = /\beval time =\s*([0-9.]+) ms \/ \s*(\d+) tokens(?:[^\n]*?,\s*([0-9.]+) tokens per second)?/.exec(l))) {
+            r.evalMs = Number(g[1]);
+            r.evalTok = Number(g[2]);
+            if (g[3] !== undefined) r.evalRate = Number(g[3]);
+            r.done = true;
+        } else if ((g = /\btotal time =\s*([0-9.]+) ms/.exec(l))) {
+            r.totalMs = Number(g[1]);
+            r.done = true;
+        } else if ((g = /\bstop processing: n_tokens =\s*(\d+)(?:,\s*truncated =\s*(\d+))?/.exec(l))) {
+            r.relTok = Number(g[1]);
+            r.trunc = g[2] !== undefined ? Number(g[2]) : 0;
+            r.done = true;
+        }
     }
-    s.active = lastOpen > lastClose;
 
-    const rePrompt = /task (\d+) \|\s*prompt eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
-    while ((m = rePrompt.exec(t)) !== null) {
-        const id = m[1];
-        if (!perTask[id]) { perTask[id] = {}; order.push(id); }
-        perTask[id].inTok = Number(m[3]);
-        perTask[id].promptMs = Number(m[2]);
-    }
-    // newer builds append the decode rate to the eval line
-    // ("(24.43 ms per token, 40.93 tokens per second)")
-    const reEval = /task (\d+) \|\s+eval time =\s+([0-9.]+) ms \/ \s*(\d+) tokens(?:[^\n]*?,\s*([0-9.]+) tokens per second)?/g;
-    while ((m = reEval.exec(t)) !== null) {
-        const id = m[1];
-        if (!perTask[id]) { perTask[id] = {}; order.push(id); }
-        perTask[id].outTok = Number(m[3]);
-        perTask[id].evalMs = Number(m[2]);
-        if (m[4] !== undefined) perTask[id].rate = Number(m[4]);
-    }
-    // total time lines carry the task id only in some builds ("task N | total").
-    const reTotTask = /task (\d+) \|\s*total time =\s+([0-9.]+) ms/g;
-    while ((m = reTotTask.exec(t)) !== null) {
-        const id = m[1];
-        if (!perTask[id]) { perTask[id] = {}; order.push(id); }
-        perTask[id].totalMs = Number(m[2]);
-    }
-    let sumPrompt = 0, sumOut = 0, count = 0;
+    // legacy whole-tail fallbacks: cur_n context readings and old speed lines
+    let legacyCur = -1;
+    const reCur = /cur_n\s*=\s*(\d+)/g;
+    while ((m = reCur.exec(t)) !== null) legacyCur = Math.max(legacyCur, Number(m[1]));
+    let legacyCurSpeed = -1, legacyAvgSpeed = -1;
+    const reCurSp = /cur speed =\s*([0-9.]+)/g;
+    while ((m = reCurSp.exec(t)) !== null) legacyCurSpeed = Number(m[1]);
+    const reAvgSp = /avg speed =\s*([0-9.]+)/g;
+    while ((m = reAvgSp.exec(t)) !== null) legacyAvgSpeed = Number(m[1]);
+    // one row per request: live rows are born at "processing task" and
+    // refresh with every n_gen / prefill-progress line, so the stream and
+    // the cards move DURING generation, not only at release.
+    let anyActive = false, count = 0;
+    let sumIn = 0, sumOut = 0, sumReused = 0, doneOut = 0, doneDecMs = 0;
+    let used = -1, relLast = -1, liveMax = -1;
+    let liveTg = -1, liveTg3 = -1, pRead = -1, pTot = 0, pRate = -1, genNow = -1;
     order.forEach(function (id) {
-        const r = perTask[id];
-        if (r.inTok === undefined && r.outTok === undefined) return;
+        const r = tasks[id];
+        if (!r.open && !r.done && r.inTok < 0 && r.gen < 0 && r.relTok < 0 && r.pRead < 0) return;
         count++;
-        sumPrompt += r.inTok || 0;
-        sumOut += r.outTok || 0;
-        const dur = (r.totalMs || ((r.promptMs || 0) + (r.evalMs || 0))) / 1000;
-        const outT = r.outTok || 0;
+        const running = !r.done;
+        if (running) anyActive = true;
+        const inTok = r.inTok > 0 ? r.inTok : 0;
+        // accepted tokens win over the eval-line count: with speculative
+        // decoding the latter also counts rejected drafts
+        const outTok = r.gen >= 0 ? r.gen : (r.evalTok > 0 ? r.evalTok : 0);
+        const reused = (r.inTok > 0 && r.procTok >= 0 && r.inTok > r.procTok)
+                       ? r.inTok - r.procTok : 0;
+        sumIn += inTok;
+        sumOut += outTok;
+        sumReused += reused;
+        if (!running && outTok > 0 && r.evalMs > 0) { doneOut += outTok; doneDecMs += r.evalMs; }
+        // live context: while running the slot holds its prompt plus
+        // everything accepted so far; once idle, the LATEST release
+        // reading is the truth — an older release may predate a cache
+        // wipe ("forcing full prompt re-processing" erases the rest)
+        if (running) {
+            let hold = -1;
+            if (r.inTok >= 0 && r.gen >= 0) hold = r.inTok + r.gen;
+            else if (r.pRead >= 0) hold = r.pRead;
+            else if (r.open && r.inTok >= 0) hold = r.inTok;
+            if (hold >= 0) liveMax = Math.max(liveMax, hold);
+        } else if (r.relTok >= 0) {
+            relLast = r.relTok;
+        }
+        // freshest decode speed in tail order: 3 s window first, average after
+        if (r.tg3 > 0) liveTg3 = r.tg3;
+        if (r.tg > 0) liveTg = r.tg;
+        if (running && r.pRead >= 0) pRead = r.pRead;
+        if (running && r.pTot > 0) pTot = r.pTot;
+        if (r.pRate > 0) pRate = r.pRate;
+        if (running && r.gen >= 0) genNow = r.gen;
+
         // llama timestamps are relative to boot, not wall-clock: stamp each
         // task the first time it is seen (the per-server map persists in
         // main.qml) so the shared table sorts llama rows correctly.
@@ -786,37 +890,85 @@ function llamaLogStats(text, s, seen, now) {
             if (seen[id] === undefined) seen[id] = now || 0;
             stamp = seen[id];
         }
-        const decS = (r.evalMs || 0) / 1000;
+        const dur = (r.totalMs > 0 ? r.totalMs
+                   : Math.max(0, r.promptMs) + Math.max(0, r.evalMs)) / 1000;
+        let tps;
+        if (running) tps = r.tg3 > 0 ? r.tg3 : (r.tg > 0 ? r.tg : (r.pRate > 0 ? r.pRate : 0));
+        else if (r.tg > 0) tps = r.tg;
+        else if (r.evalRate > 0) tps = r.evalRate;
+        else if (outTok > 0 && r.evalMs > 0) tps = outTok / (r.evalMs / 1000);
+        else tps = dur > 0 ? outTok / dur : 0;
         s.reqs.push({
-            at: stamp, durS: dur,
-            tps: decS > 0 ? outT / decS : (dur > 0 ? outT / dur : 0),
-            inTok: r.inTok || 0, outTok: outT, finish: "stop"
+            at: stamp, durS: running ? 0 : dur, tps: tps,
+            inTok: inTok, reused: reused, outTok: outTok,
+            finish: running ? "…" : (r.trunc === 1 ? "length" : "stop")
         });
     });
     if (count > 0) {
         s.events = count;
-        s.promptTok = sumPrompt;
+        s.promptTok = sumIn;
         s.outTok = sumOut;
+        s.reusedTok = sumReused;
+        s.genNow = genNow;
+        s.active = anyActive;
+        used = liveMax >= 0 ? liveMax : relLast;
+        s.ctxUsed = used;
+        if (pRead >= 0 && pTot > 0) { s.promptRead = pRead; s.promptTotal = pTot; }
+        if (pRate > 0) s.prefillTps = pRate;
         s.reqs = s.reqs.slice(-6).reverse();
     }
 
-    const reAvg = /avg speed =\s*([0-9.]+)/g;
-    while ((m = reAvg.exec(t)) !== null) s.meanTps = Number(m[1]);
-    const reCur2 = /cur speed =\s*([0-9.]+)/g;
-    while ((m = reCur2.exec(t)) !== null) s.tps = Number(m[1]);
-    if (s.tps < 0) {
-        // no "cur speed" in these builds: the newest task's eval rate is
-        // the freshest decode speed the log ever printed
-        for (let i = order.length - 1; i >= 0; i = i - 1) {
-            const rt = perTask[order[i]].rate;
-            if (rt > 0) { s.tps = rt; break; }
+    // no per-task data in this window: legacy cur_n, then the last
+    // n_tokens mention (cached prefix, checkpoint, "stop processing"),
+    // then the older total-time estimate — same fallbacks as before
+    if (used < 0) {
+        if (legacyCur >= 0) used = legacyCur;
+        else {
+            const reNtok = /\bn_tokens\s*=\s*(\d+)/g;
+            while ((m = reNtok.exec(t)) !== null) used = Number(m[1]);
         }
     }
-    if (s.meanTps < 0 && s.outTok > 0) {
-        let decMs = 0;
-        order.forEach(function (id) { decMs += perTask[id].evalMs || 0; });
-        if (decMs > 0) s.meanTps = s.outTok / (decMs / 1000);
+    if (used < 0) {
+        let lastTot = null;
+        const reTot = /\|\s*total time =\s+([0-9.]+) ms \/ \s*(\d+) tokens/g;
+        while ((m = reTot.exec(t)) !== null) lastTot = Number(m[2]);
+        if (lastTot !== null) used = lastTot;
     }
+    s.ctxUsed = used;
+    // no task ids in this window (very old builds): a generation is live
+    // between "processing task" (launch) and the matching "stop
+    // processing" (release): whichever comes last wins
+    if (count === 0) {
+        const reProc = /\b(?:stop processing|processing task)\b/g;
+        let lastOpen = -1, lastClose = -1;
+        while ((m = reProc.exec(t)) !== null) {
+            if (m[0] === "stop processing") lastClose = m.index;
+            else lastOpen = m.index;
+        }
+        s.active = lastOpen > lastClose;
+    }
+
+    // speed: live n_gen tg_3s/tg (the webui's own series) beat the legacy
+    // "cur speed"; with nothing live the last finished request's accepted
+    // average holds. The eval line's "tokens per second" stays a last
+    // resort: speculative decoding inflates it with draft tokens.
+    // speed figure: while generating, tg_3s (llama's own last-3 s rate,
+    // what the webui prints live); once released, the request's final tg
+    // — the SAME number the shared table shows in Decode t/s, so the
+    // card and the table can never disagree
+    if (anyActive && liveTg3 > 0) s.tps = liveTg3;
+    else if (liveTg > 0) s.tps = liveTg;
+    else if (liveTg3 > 0) s.tps = liveTg3;
+    else if (legacyCurSpeed > 0) s.tps = legacyCurSpeed;
+    else {
+        for (let i = order.length - 1; i >= 0; i = i - 1) {
+            const r = tasks[order[i]];
+            const t0 = r.tg > 0 ? r.tg : r.evalRate;
+            if (t0 > 0) { s.tps = t0; break; }
+        }
+    }
+    if (legacyAvgSpeed > 0) s.meanTps = legacyAvgSpeed;
+    if (s.meanTps < 0 && doneOut > 0 && doneDecMs > 0) s.meanTps = doneOut / (doneDecMs / 1000);
     // CUDA/Metal backends print device memory at load ("used = X, free = Y,
     // size = S MiB"): the last reading labels the llama ring segment.
     const reVram = /used\s*=\s*([\d,]+),\s*free\s*=\s*[\d,]+,\s*size\s*=\s*([\d,]+)/g;

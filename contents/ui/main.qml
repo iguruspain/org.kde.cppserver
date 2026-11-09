@@ -72,6 +72,7 @@ PlasmoidItem {
     property var statsMap: ({})          // id -> { ep, kind, err, health, body, at }
     property var statsTally: ({})        // id -> "model (vX)" (generic /health servers)
     property var statsStickMaps: ({})    // id -> last-good scalars (llama anti-flicker)
+    property var statsLiveMaps: ({})     // id -> {active, tps}: CURRENT speed, generating only (tokSample gate)
     property var statsModels: ({})       // id -> model name recovered from the log
     property var statsScanAt: ({})       // id -> last whole-log marker scan (hot-swap re-scan)
     property var gpuInfo: ({})           // parseGpu(): per-pid VRAM + machine totals
@@ -395,13 +396,17 @@ PlasmoidItem {
         // machine block works with no server reporting anything
         run(Logic.scriptCmd() + " gpu", function (code, out) {
             var g = code === 0 ? Logic.parseGpu(out) : {}
-            // machine token-speed sample for the Speed tile sparkline: the
-            // freshest last-known t/s across running servers (sticky cache)
-            // — works for llama.cpp servers that keep no server-side history
+            // machine token-speed sample for the Speed tile sparkline:
+            // the live t/s across running servers — but a server only
+            // contributes WHILE generating (its log/metrics speed is a
+            // current figure then); an idle server contributes 0, so the
+            // series falls back to zero like strata's tok_s history
             var samp = -1
-            Object.keys(statsStickMaps).forEach(function (sid) {
-                var v = statsStickMaps[sid].tps
-                if (typeof v === "number" && v >= 0 && v > samp) samp = v
+            Object.keys(runningMap).forEach(function (sid) {
+                if (!runningMap[sid] || !runningMap[sid].alive) return
+                var lv = statsLiveMaps[sid]
+                var v = (lv && lv.active && lv.tps > 0) ? lv.tps : 0
+                if (v > samp) samp = v
             })
             if (samp >= 0) g.tokSample = samp
             gpuInfo = g
@@ -425,6 +430,18 @@ PlasmoidItem {
             if (!e) return
             var st = Logic.parseStats(e, reqSeenOf(s.id), statsExtraOf(s.id))
             entries.push({ name: s.name || s.id, reqs: st.reqs })
+            // live speed feed for the Speed tile: t/s is only a CURRENT
+            // figure while the server is actually generating — an idle
+            // llama server holds its last tg in the sticky cache forever,
+            // which is exactly what made the tile plateau instead of
+            // falling to 0 like strata's tok_s does
+            var lv = statsLiveMaps[s.id]
+            if (!lv) {
+                lv = {}
+                statsLiveMaps[s.id] = lv
+            }
+            lv.active = !!st.active
+            lv.tps = (typeof st.tps === "number" && st.tps > 0) ? st.tps : 0
         })
         var merged = Logic.mergeReqs(entries, 8).map(Logic.fmtReqRow)
         // idle servers produce an identical stream every tick: keep the
@@ -494,6 +511,7 @@ PlasmoidItem {
         statsMap = Logic.withoutKey(statsMap, id)
         statsTally = Logic.withoutKey(statsTally, id)
         delete statsStickMaps[id]
+        delete statsLiveMaps[id]
         delete statsModels[id]
         delete statsScanAt[id]
         delete reqSeenMaps[id]
@@ -585,7 +603,11 @@ PlasmoidItem {
     function tailLlamaLog(id) {
         var r = runningMap[id]
         if (!r || !r.logfile) return
-        ctl("logread " + Logic.shQuote(r.logfile) + " 200", function (code2, out2) {
+        // 400 lines: one prefill burst (checkpoint/cache chatter) plus the
+        // 3 s print_timing lines can blow through a small window between
+        // two ticks, and losing the "processing task" line mid-request
+        // would drop that request's live row for a beat
+        ctl("logread " + Logic.shQuote(r.logfile) + " 400", function (code2, out2) {
             if (code2 !== 0) return
             var cur = statsMap[id]
             if (!cur || cur.log === out2) return

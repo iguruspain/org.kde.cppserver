@@ -244,6 +244,11 @@ ColumnLayout {
                 if (page.backend.showStatErrors) parts.push('<span style="color: ' + Kirigami.Theme.negativeTextColor + '; font-weight: bold;">' + i18n("Errors: %1", st.errors) + '</span>')
                 if (page.backend.showStatOom) parts.push('<span style="color: ' + Kirigami.Theme.negativeTextColor + '; font-weight: bold;">' + i18n("Out of memory: %1", st.oom) + '</span>')
                 if (page.backend.showStatTps && st.maxTps > 0) {
+                    // "actual" is only meaningful while the speed lines are
+                    // still arriving: the server is up and its last t/s
+                    // line was not closed by "stop processing".
+                    if (st.curTps > 0 && st.tpsFresh && logsTab.running && logsTab.running.alive)
+                        parts.push('<span style="color: ' + Kirigami.Theme.positiveTextColor + '; font-weight: bold;">' + i18n("Current speed: %1 t/s", st.curTps.toFixed(2)) + '</span>')
                     parts.push('<b>' + i18n("Max speed: %1 t/s", st.maxTps.toFixed(2)) + '</b>')
                     parts.push('<b>' + i18n("Min speed: %1 t/s", st.minTps.toFixed(2)) + '</b>')
                 }
@@ -254,7 +259,8 @@ ColumnLayout {
                                      Kirigami.Theme.neutralTextColor,
                                      filterField.text, regexBtn.checked,
                                      Kirigami.Theme.highlightColor,
-                                     Kirigami.Theme.highlightedTextColor)
+                                     Kirigami.Theme.highlightedTextColor,
+                                     page.backend.showStatTps ? Kirigami.Theme.positiveTextColor : "")
                 : ""
 
             RowLayout {
@@ -546,11 +552,17 @@ ColumnLayout {
                     }
                 }
 
-                // Ring source colors: every running server keeps a stable
-                // hue by position in the list.
-                function srcColor(i) {
-                    var h = [0.58, 0.10, 0.34, 0.80, 0.46, 0.02, 0.88, 0.21]
-                    return Qt.hsla(h[i % h.length], 0.45, 0.55, 0.30)
+                // Ring source colors: a fixed RED→AMBER gradient across the
+                // servers — the very endpoints of GaugeRing's tint (negative
+                // past 90%, neutral past 70%), so the segments speak the
+                // same color language as the ring itself instead of a
+                // rotation of arbitrary hues.
+                function srcColor(i, count) {
+                    var a = Kirigami.Theme.negativeTextColor
+                    var b = Kirigami.Theme.neutralTextColor
+                    var t = count > 1 ? i / (count - 1) : 0
+                    return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
+                                   a.b + (b.b - a.b) * t, 0.30)
                 }
 
                 // VRAM ring segments — who holds each slice, best source per
@@ -561,7 +573,7 @@ ColumnLayout {
                 readonly property var vramSegs: {
                     var m = statsTab.hw
                     if (!m || !(m.vramTotalMib > 0) || !(m.vramUsedMib >= 0)) return []
-                    var out = [], known = 0, idx = 0
+                    var out = [], known = 0
                     statsTab.rows.forEach(function (r) {
                         if (!r.running || !r.st) return
                         var own = -1
@@ -577,10 +589,12 @@ ColumnLayout {
                         own = Math.min(own, m.vramTotalMib - known)
                         if (!(own > 0)) return
                         known += own
-                        out.push({ frac: own / m.vramTotalMib,
-                                   color: statsTab.srcColor(idx), label: r.name || r.id })
-                        idx++
+                        out.push({ frac: own / m.vramTotalMib, color: "transparent", label: r.name || r.id })
                     })
+                    // the gradient needs the segment count: stamp colors
+                    // once every holder is known (the grey "other" slice
+                    // stays outside the ramp)
+                    out.forEach(function (seg, k) { seg.color = statsTab.srcColor(k, out.length) })
                     var rest = m.vramUsedMib - known
                     if (rest > 128) {
                         out.push({ frac: Math.min(1, rest / m.vramTotalMib),
