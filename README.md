@@ -68,7 +68,7 @@ Placeholders: `{HOST}`, `{PORT}`, `{CONFIG_FILE}`, `{PRESET}`. `~` and `$HOME` a
 
 `id` is stable (used for the log/pid file names), so renaming a server never orphans a running process.
 
-The **Stats** page toggles what the Stats tab shows (VRAM bars, hardware footer, token chips, t/s, recent requests); changes apply immediately. The **Logs** page controls the log view (font size auto/fixed, and which log stat highlights are shown).
+The **Stats** page toggles what the Stats tab shows (the live request stream, generation speed, token totals incl. context, VRAM split per server, machine hardware); changes apply immediately. The **Logs** page controls the log view (font size auto/fixed, and which log stat highlights are shown).
 
 ## Behavior
 

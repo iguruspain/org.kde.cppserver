@@ -21,7 +21,7 @@ KCM.SimpleKCM {
         }
 
         QQC2.CheckBox {
-            text: i18n("Show recent requests (events)")
+            text: i18n("Show the live request stream")
             checked: Plasmoid.configuration.statShowEvents
             onToggled: Plasmoid.configuration.statShowEvents = checked
         }
@@ -31,17 +31,17 @@ KCM.SimpleKCM {
             onToggled: Plasmoid.configuration.statShowTps = checked
         }
         QQC2.CheckBox {
-            text: i18n("Show token totals (requests, in, out, reused)")
+            text: i18n("Show token totals (requests, in, out, reused, context)")
             checked: Plasmoid.configuration.statShowTokens
             onToggled: Plasmoid.configuration.statShowTokens = checked
         }
         QQC2.CheckBox {
-            text: i18n("Show VRAM bars")
+            text: i18n("Show VRAM usage (split per server)")
             checked: Plasmoid.configuration.statShowVram
             onToggled: Plasmoid.configuration.statShowVram = checked
         }
         QQC2.CheckBox {
-            text: i18n("Show machine hardware summary (GPU, CPU, RAM)")
+            text: i18n("Show machine hardware (GPU, CPU, RAM, disk)")
             checked: Plasmoid.configuration.statShowHardware
             onToggled: Plasmoid.configuration.statShowHardware = checked
         }
@@ -50,7 +50,7 @@ KCM.SimpleKCM {
             Layout.fillWidth: true
             opacity: 0.6
             wrapMode: Text.Wrap
-            text: i18n("strata reports everything over its HTTP API (/metrics). llama.cpp gives token and context numbers from its log; add --metrics to its command for live t/s and request counters. GPU/CPU/RAM numbers describe the whole machine and come from strata.")
+            text: i18n("strata reports everything over its HTTP API (/metrics). llama.cpp gives the same figures - speed, context, live requests - from its log, so no extra flag is needed; --metrics only adds server-side counters. Machine figures (GPU, CPU, RAM, disk) are probed by the widget itself (nvidia-smi and /proc), not by any server.")
         }
     }
 }

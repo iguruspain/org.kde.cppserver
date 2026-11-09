@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-09 22:58+0100\n"
+"POT-Creation-Date: 2026-11-09 23:11+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -565,7 +565,7 @@ msgid ""
 msgstr ""
 
 #: contents/ui/config/ConfigStats.qml:24
-msgid "Show recent requests (events)"
+msgid "Show the live request stream"
 msgstr ""
 
 #: contents/ui/config/ConfigStats.qml:29
@@ -573,23 +573,24 @@ msgid "Show generation speed (t/s)"
 msgstr ""
 
 #: contents/ui/config/ConfigStats.qml:34
-msgid "Show token totals (requests, in, out, reused)"
+msgid "Show token totals (requests, in, out, reused, context)"
 msgstr ""
 
 #: contents/ui/config/ConfigStats.qml:39
-msgid "Show VRAM bars"
+msgid "Show VRAM usage (split per server)"
 msgstr ""
 
 #: contents/ui/config/ConfigStats.qml:44
-msgid "Show machine hardware summary (GPU, CPU, RAM)"
+msgid "Show machine hardware (GPU, CPU, RAM, disk)"
 msgstr ""
 
 #: contents/ui/config/ConfigStats.qml:53
 msgid ""
-"strata reports everything over its HTTP API (/metrics). llama.cpp gives "
-"token and context numbers from its log; add --metrics to its command for "
-"live t/s and request counters. GPU/CPU/RAM numbers describe the whole "
-"machine and come from strata."
+"strata reports everything over its HTTP API (/metrics). llama.cpp gives the "
+"same figures - speed, context, live requests - from its log, so no extra "
+"flag is needed; --metrics only adds server-side counters. Machine figures "
+"(GPU, CPU, RAM, disk) are probed by the widget itself (nvidia-smi and /"
+"proc), not by any server."
 msgstr ""
 
 #: contents/ui/main.qml:39

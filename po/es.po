@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-09 22:58+0100\n"
+"POT-Creation-Date: 2026-11-09 23:11+0100\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -579,36 +579,38 @@ msgstr ""
 "se aplican al instante."
 
 #: contents/ui/config/ConfigStats.qml:24
-msgid "Show recent requests (events)"
-msgstr "Mostrar peticiones recientes (eventos)"
+msgid "Show the live request stream"
+msgstr "Mostrar el flujo de peticiones en vivo"
 
 #: contents/ui/config/ConfigStats.qml:29
 msgid "Show generation speed (t/s)"
 msgstr "Mostrar velocidad de generación (t/s)"
 
 #: contents/ui/config/ConfigStats.qml:34
-msgid "Show token totals (requests, in, out, reused)"
-msgstr "Mostrar totales de tokens (peticiones, entrada, salida, reutilizados)"
+msgid "Show token totals (requests, in, out, reused, context)"
+msgstr "Mostrar totales de tokens (peticiones, entrada, salida, reutilizados, contexto)"
 
 #: contents/ui/config/ConfigStats.qml:39
-msgid "Show VRAM bars"
-msgstr "Mostrar barras de VRAM"
+msgid "Show VRAM usage (split per server)"
+msgstr "Mostrar uso de VRAM (repartido por servidor)"
 
 #: contents/ui/config/ConfigStats.qml:44
-msgid "Show machine hardware summary (GPU, CPU, RAM)"
-msgstr "Mostrar resumen de hardware de la máquina (GPU, CPU, RAM)"
+msgid "Show machine hardware (GPU, CPU, RAM, disk)"
+msgstr "Mostrar hardware de la máquina (GPU, CPU, RAM, disco)"
 
 #: contents/ui/config/ConfigStats.qml:53
 msgid ""
-"strata reports everything over its HTTP API (/metrics). llama.cpp gives "
-"token and context numbers from its log; add --metrics to its command for "
-"live t/s and request counters. GPU/CPU/RAM numbers describe the whole "
-"machine and come from strata."
+"strata reports everything over its HTTP API (/metrics). llama.cpp gives the "
+"same figures - speed, context, live requests - from its log, so no extra "
+"flag is needed; --metrics only adds server-side counters. Machine figures "
+"(GPU, CPU, RAM, disk) are probed by the widget itself (nvidia-smi and /"
+"proc), not by any server."
 msgstr ""
-"strata lo publica todo mediante su API HTTP (/metrics). llama.cpp da tokens "
-"y contexto desde su log; añade --metrics a su comando para tener t/s y "
-"contadores de peticiones en vivo. Las cifras de GPU/CPU/RAM describen toda "
-"la máquina y proceden de strata."
+"strata lo cuenta todo por su API HTTP (/metrics). llama.cpp da las mismas "
+"cifras - velocidad, contexto, peticiones en vivo - desde su log, así que "
+"no hace falta ninguna opción extra; --metrics solo añade contadores del "
+"servidor. Las cifras de la máquina (GPU, CPU, RAM, disco) las sondea el "
+"propio widget (nvidia-smi y /proc), no las aporta ningún servidor."
 
 #: contents/ui/main.qml:39
 msgid "Start all"
