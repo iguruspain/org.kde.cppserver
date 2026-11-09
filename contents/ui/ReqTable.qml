@@ -34,11 +34,13 @@ TableView {
     onShowTokensChanged: recalc()
     Component.onCompleted: recalc()
     function buildRows() {
+        // Prompt / Out / Decode t/s are deliberately NOT i18n():
+        // they stay in English in every language, like the tps values.
         var out = [{
             time: i18n("Time"), server: i18n("Server"),
-            status: i18n("State"), inTok: i18n("In"),
-            reused: i18n("Reused"), outTok: i18n("Out"),
-            tps: "t/s", dur: i18n("Dur")
+            status: i18n("State"), inTok: "Prompt",
+            reused: i18n("Reused"), outTok: "Out",
+            tps: "Decode t/s", dur: i18n("Duration")
         }]
         streamRows.forEach(function (r) {
             if (!showTokens) {

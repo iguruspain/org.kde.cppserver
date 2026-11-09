@@ -550,7 +550,7 @@ ColumnLayout {
                 // hue by position in the list.
                 function srcColor(i) {
                     var h = [0.58, 0.10, 0.34, 0.80, 0.46, 0.02, 0.88, 0.21]
-                    return Qt.hsla(h[i % h.length], 0.45, 0.55, 1)
+                    return Qt.hsla(h[i % h.length], 0.45, 0.55, 0.30)
                 }
 
                 // VRAM ring segments — who holds each slice, best source per
@@ -1063,16 +1063,19 @@ ColumnLayout {
                                         rowSpacing: 0
                                         visible: page.backend.statShowTokens && srv.st !== null
 
-                                        PlasmaComponents.Label { Layout.fillWidth: true; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("req") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("tok in") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("tok out") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("reused") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("context") }
+                                        // token in / token out are deliberately
+                                        // NOT i18n(): they stay in English everywhere.
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("requests") }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: "token in" }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: "token out" }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("reused") }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("context") }
 
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
                                             font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.events >= 0 ? Logic.fmtTokens(srv.st.events) : "—"
                                         }
@@ -1080,6 +1083,7 @@ ColumnLayout {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
                                             font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.promptTok >= 0 ? Logic.fmtTokens(srv.st.promptTok) : "—"
                                         }
@@ -1087,6 +1091,7 @@ ColumnLayout {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
                                             font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.outTok >= 0 ? Logic.fmtTokens(srv.st.outTok) : "—"
                                         }
@@ -1094,6 +1099,7 @@ ColumnLayout {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
                                             font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.reusedTok > 0 ? Logic.fmtTokens(srv.st.reusedTok) : "—"
                                         }
@@ -1101,6 +1107,7 @@ ColumnLayout {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
                                             font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.ctxMax > 0 && srv.st.ctxUsed >= 0
                                                   ? Logic.fmtTokens(srv.st.ctxUsed) + " / " + Logic.fmtTokens(srv.st.ctxMax)
