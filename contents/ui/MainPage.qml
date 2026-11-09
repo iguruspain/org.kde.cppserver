@@ -477,6 +477,12 @@ ColumnLayout {
             ColumnLayout {
                 id: statsTab
                 spacing: 0
+                // older Kirigami has no Theme.readOnlyTextFont: keep the
+                // monospace digits (no reflow on changing numbers) without
+                // breaking on it
+                readonly property string monoFontFamily: Kirigami.Theme.readOnlyTextFont
+                                                         ? Kirigami.Theme.readOnlyTextFont.family
+                                                         : "monospace"
 
                 // ── dashboard model ───────────────────────────────────────
                 // One card per server that is running or has been probed.
@@ -531,7 +537,8 @@ ColumnLayout {
                         diskRead: st ? st.diskRead : -1,
                         gpuName: st ? st.gpuName : "",
                         cpuName: st ? st.cpuName : "",
-                        cores: st ? st.cores : 0,
+                        cores: st && st.cores > 0 ? st.cores : (g.cpuCores > 0 ? g.cpuCores : 0),
+                        threads: st && st.threads > 0 ? st.threads : (g.cpuThreads > 0 ? g.cpuThreads : 0),
                         pcie: st ? st.pcie : "",
                         meanTps: st ? st.meanTps : -1,
                         hist: st ? st.hist : {}
@@ -758,6 +765,176 @@ ColumnLayout {
                         width: dashScroll.availableWidth
                         spacing: Kirigami.Units.smallSpacing
 
+                        // ── machine rings (the headline block: no title) ──
+                        // machine-wide counters from the `gpu` poll
+                        // (nvidia-smi + /proc) enriched by strata's own
+                        // history. Each server's context ring lives inside
+                        // its card. Amber → red past the thresholds.
+                        GridLayout {
+                            Layout.fillWidth: true
+                            // never more columns than rings: the spare ones
+                            // would eat the width and leave the block hugging
+                            // the left edge; fillWidth on each ring stretches
+                            // the used columns across the whole popup
+                            columns: Math.max(1, Math.min(4, Math.floor(
+                                (statsTab.width - 24) /
+                                (Kirigami.Units.gridUnit * 3.4 + Kirigami.Units.largeSpacing))))
+                            columnSpacing: Kirigami.Units.largeSpacing
+                            rowSpacing: Kirigami.Units.smallSpacing
+                            visible: statsTab.hw !== null
+
+                            // machine-wide rings (strata host counters)
+                            GaugeRing {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignTop
+                                visible: page.backend.statShowHardware && statsTab.hw !== null
+                                         && statsTab.hw.cpuPct >= 0
+                                name: i18n("CPU")
+                                frac: statsTab.hw ? Math.max(0, statsTab.hw.cpuPct) / 100 : 0
+                                readout: statsTab.hw && statsTab.hw.cores > 0
+                                         ? (statsTab.hw.threads > statsTab.hw.cores
+                                            ? i18n("%1 cores / %2 threads", statsTab.hw.cores,
+                                                   statsTab.hw.threads)
+                                            : i18n("%1 cores", statsTab.hw.cores)) : ""
+                                spark: statsTab.hw ? (statsTab.hw.hist.cpu || []) : []
+                            }
+                            GaugeRing {
+                                Layout.fillWidth: true
+
+                                Layout.alignment: Qt.AlignTop
+                                visible: page.backend.statShowHardware && statsTab.hw !== null
+                                         && statsTab.hw.gpuUtil >= 0
+                                name: i18n("GPU")
+                                frac: statsTab.hw ? Math.max(0, statsTab.hw.gpuUtil) / 100 : 0
+                                readout: statsTab.hw ? (statsTab.hw.gpuName || "") : ""
+                                spark: statsTab.hw ? (statsTab.hw.hist.gpu_util || []) : []
+                            }
+                            GaugeRing {
+                                Layout.fillWidth: true
+
+                                Layout.alignment: Qt.AlignTop
+                                visible: page.backend.statShowVram && statsTab.hw !== null
+                                         && statsTab.hw.vramTotalMib > 0 && statsTab.hw.vramUsedMib >= 0
+                                name: i18n("VRAM")
+                                frac: statsTab.hw ? Math.min(1, statsTab.hw.vramUsedMib / Math.max(1, statsTab.hw.vramTotalMib)) : 0
+                                readout: statsTab.hw ? Logic.fmtMibPair(statsTab.hw.vramUsedMib,
+                                                                       statsTab.hw.vramTotalMib) : ""
+                                segments: statsTab.vramSegs
+                                spark: statsTab.hw ? (statsTab.hw.hist.gpu_mem_used || []) : []
+                            }
+                            GaugeRing {
+                                Layout.fillWidth: true
+
+                                Layout.alignment: Qt.AlignTop
+                                visible: page.backend.statShowHardware && statsTab.hw !== null
+                                         && statsTab.hw.ramTotalMib > 0 && statsTab.hw.ramUsedMib >= 0
+                                name: i18n("RAM")
+                                frac: statsTab.hw ? Math.min(1, statsTab.hw.ramUsedMib / Math.max(1, statsTab.hw.ramTotalMib)) : 0
+                                readout: statsTab.hw ? Logic.fmtMibPair(statsTab.hw.ramUsedMib,
+                                                                       statsTab.hw.ramTotalMib) : ""
+                                spark: statsTab.hw ? (statsTab.hw.hist.ram_used || []) : []
+                            }
+                        }
+
+                        // ── VRAM segments legend on its own row: it used to sit
+                        // under one ring and pushed that ring out of line ──
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: Kirigami.Units.smallSpacing
+                            visible: statsTab.hw !== null && page.backend.statShowVram
+                                     && statsTab.vramSegs.length > 1
+                            Repeater {
+                                model: (statsTab.hw && statsTab.vramSegs.length > 1)
+                                       ? statsTab.vramSegs.length : 0
+                                delegate: Row {
+                                    required property int modelData
+                                    spacing: 3
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 8; height: 8; radius: 2
+                                        color: statsTab.vramSegs[modelData] ? statsTab.vramSegs[modelData].color : "transparent"
+                                    }
+                                    PlasmaComponents.Label {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: statsTab.vramSegs[modelData] ? (statsTab.vramSegs[modelData].label || "") : ""
+                                        font: Kirigami.Theme.smallFont
+                                        opacity: 0.7
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── KPI tiles with sparklines ──
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: Math.max(2, Math.min(4, Math.floor(statsTab.width / 170)))
+                            columnSpacing: Kirigami.Units.smallSpacing
+                            rowSpacing: Kirigami.Units.smallSpacing
+                            visible: statsTab.tileIds.length > 0
+
+                            Repeater {
+                                model: statsTab.tileIds
+                                delegate: Rectangle {
+                                    required property string modelData
+                                    readonly property var tile: statsTab.tilesById[modelData] || {}
+                                    Layout.fillWidth: true
+                                    radius: Kirigami.Units.cornerRadius
+                                    color: statsTab.cardColor
+                                    border.width: 1
+                                    border.color: statsTab.cardBorder
+                                    implicitHeight: tileCol.implicitHeight + Kirigami.Units.largeSpacing
+
+                                    ColumnLayout {
+                                        id: tileCol
+                                        anchors.fill: parent
+                                        anchors.margins: Kirigami.Units.smallSpacing
+                                        spacing: 1
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            font: Kirigami.Theme.smallFont
+                                            opacity: 0.65
+                                            elide: Text.ElideRight
+                                            text: tile.label !== undefined ? tile.label : " "
+                                        }
+                                        RowLayout {
+                                            spacing: 3
+                                            PlasmaComponents.Label {
+                                                text: tile.value !== undefined ? tile.value : " "
+                                                color: tile.tint !== undefined ? tile.tint : "transparent"
+                                                font {
+                                                    pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.5
+                                                    bold: true
+                                                    // monospace digits: changing
+                                                    // values never reflow
+                                                    family: statsTab.monoFontFamily
+                                                }
+                                            }
+                                            PlasmaComponents.Label {
+                                                Layout.alignment: Qt.AlignBottom
+                                                font: Kirigami.Theme.smallFont
+                                                opacity: 0.7
+                                                text: tile.unit !== undefined ? tile.unit : ""
+                                            }
+                                        }
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            font: Kirigami.Theme.smallFont
+                                            opacity: 0.6
+                                            elide: Text.ElideRight
+                                            // blank placeholder keeps tile height constant
+                                            text: (tile.sub !== undefined && tile.sub !== "") ? tile.sub : " "
+                                        }
+                                        Sparkline {
+                                            Layout.fillWidth: true
+                                            visible: Array.isArray(tile.spark) && tile.spark.length > 1
+                                            series: Array.isArray(tile.spark) ? tile.spark : []
+                                            lineColor: tile.tint !== undefined ? tile.tint : "transparent"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // ── per-server live state ──
                         Repeater {
                             model: statsTab.rowIds
@@ -863,7 +1040,7 @@ ColumnLayout {
                                             font {
                                                 pointSize: Kirigami.Theme.smallFont.pointSize
                                                 bold: true
-                                                family: Kirigami.Theme.readOnlyTextFont.family
+                                                family: statsTab.monoFontFamily
                                             }
                                         }
                                         // the server's own context fill lives
@@ -931,176 +1108,41 @@ ColumnLayout {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
-                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: Kirigami.Theme.readOnlyTextFont.family }
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.events >= 0 ? Logic.fmtTokens(srv.st.events) : "—"
                                         }
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
-                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: Kirigami.Theme.readOnlyTextFont.family }
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.promptTok >= 0 ? Logic.fmtTokens(srv.st.promptTok) : "—"
                                         }
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
-                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: Kirigami.Theme.readOnlyTextFont.family }
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.outTok >= 0 ? Logic.fmtTokens(srv.st.outTok) : "—"
                                         }
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
-                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: Kirigami.Theme.readOnlyTextFont.family }
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.reusedTok > 0 ? Logic.fmtTokens(srv.st.reusedTok) : "—"
                                         }
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
                                             color: Kirigami.Theme.textColor
                                             opacity: 0.9
-                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: Kirigami.Theme.readOnlyTextFont.family }
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
                                             text: srv.st && srv.st.ctxMax > 0 && srv.st.ctxUsed >= 0
                                                   ? Logic.fmtTokens(srv.st.ctxUsed) + " / " + Logic.fmtTokens(srv.st.ctxMax)
                                                   : "—"
                                         }
                                     }
                                 }
-                            }
-                        }
-
-                        // ── KPI tiles with sparklines ──
-                        GridLayout {
-                            Layout.fillWidth: true
-                            columns: Math.max(2, Math.min(4, Math.floor(statsTab.width / 170)))
-                            columnSpacing: Kirigami.Units.smallSpacing
-                            rowSpacing: Kirigami.Units.smallSpacing
-                            visible: statsTab.tileIds.length > 0
-
-                            Repeater {
-                                model: statsTab.tileIds
-                                delegate: Rectangle {
-                                    required property string modelData
-                                    readonly property var tile: statsTab.tilesById[modelData] || {}
-                                    Layout.fillWidth: true
-                                    radius: Kirigami.Units.cornerRadius
-                                    color: statsTab.cardColor
-                                    border.width: 1
-                                    border.color: statsTab.cardBorder
-                                    implicitHeight: tileCol.implicitHeight + Kirigami.Units.largeSpacing
-
-                                    ColumnLayout {
-                                        id: tileCol
-                                        anchors.fill: parent
-                                        anchors.margins: Kirigami.Units.smallSpacing
-                                        spacing: 1
-                                        PlasmaComponents.Label {
-                                            Layout.fillWidth: true
-                                            font: Kirigami.Theme.smallFont
-                                            opacity: 0.65
-                                            elide: Text.ElideRight
-                                            text: tile.label !== undefined ? tile.label : " "
-                                        }
-                                        RowLayout {
-                                            spacing: 3
-                                            PlasmaComponents.Label {
-                                                text: tile.value !== undefined ? tile.value : " "
-                                                color: tile.tint !== undefined ? tile.tint : "transparent"
-                                                font {
-                                                    pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.5
-                                                    bold: true
-                                                    // monospace digits: changing
-                                                    // values never reflow
-                                                    family: Kirigami.Theme.readOnlyTextFont.family
-                                                }
-                                            }
-                                            PlasmaComponents.Label {
-                                                Layout.alignment: Qt.AlignBottom
-                                                font: Kirigami.Theme.smallFont
-                                                opacity: 0.7
-                                                text: tile.unit !== undefined ? tile.unit : ""
-                                            }
-                                        }
-                                        PlasmaComponents.Label {
-                                            Layout.fillWidth: true
-                                            font: Kirigami.Theme.smallFont
-                                            opacity: 0.6
-                                            elide: Text.ElideRight
-                                            // blank placeholder keeps tile height constant
-                                            text: (tile.sub !== undefined && tile.sub !== "") ? tile.sub : " "
-                                        }
-                                        Sparkline {
-                                            Layout.fillWidth: true
-                                            visible: Array.isArray(tile.spark) && tile.spark.length > 1
-                                            series: Array.isArray(tile.spark) ? tile.spark : []
-                                            lineColor: tile.tint !== undefined ? tile.tint : "transparent"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // ── machine rings ──
-                        // machine-wide counters from the `gpu` poll
-                        // (nvidia-smi + /proc) enriched by strata's own
-                        // history. Each server's context ring lives inside
-                        // its card. Amber → red past the thresholds.
-                        PlasmaComponents.Label {
-                            Layout.topMargin: 4
-                            visible: statsTab.hw !== null
-                            text: i18n("Machine")
-                            font.bold: true
-                        }
-                        GridLayout {
-                            Layout.fillWidth: true
-                            columns: Math.max(3, Math.min(6, Math.floor(
-                                (statsTab.width - 24) /
-                                (Kirigami.Units.gridUnit * 3.4 + Kirigami.Units.largeSpacing))))
-                            columnSpacing: Kirigami.Units.largeSpacing
-                            rowSpacing: Kirigami.Units.smallSpacing
-                            visible: statsTab.hw !== null
-
-                            // machine-wide rings (strata host counters)
-                            GaugeRing {
-                                Layout.alignment: Qt.AlignHCenter
-                                visible: page.backend.statShowHardware && statsTab.hw !== null
-                                         && statsTab.hw.cpuPct >= 0
-                                name: i18n("CPU")
-                                frac: statsTab.hw ? Math.max(0, statsTab.hw.cpuPct) / 100 : 0
-                                readout: statsTab.hw && statsTab.hw.cores > 0
-                                         ? i18n("%1 cores", statsTab.hw.cores) : ""
-                                spark: statsTab.hw ? (statsTab.hw.hist.cpu || []) : []
-                            }
-                            GaugeRing {
-                                Layout.alignment: Qt.AlignHCenter
-                                visible: page.backend.statShowHardware && statsTab.hw !== null
-                                         && statsTab.hw.gpuUtil >= 0
-                                name: i18n("GPU load")
-                                frac: statsTab.hw ? Math.max(0, statsTab.hw.gpuUtil) / 100 : 0
-                                readout: statsTab.hw ? (statsTab.hw.gpuName || "") : ""
-                                spark: statsTab.hw ? (statsTab.hw.hist.gpu_util || []) : []
-                            }
-                            GaugeRing {
-                                Layout.alignment: Qt.AlignHCenter
-                                visible: page.backend.statShowVram && statsTab.hw !== null
-                                         && statsTab.hw.vramTotalMib > 0 && statsTab.hw.vramUsedMib >= 0
-                                name: i18n("VRAM")
-                                frac: statsTab.hw ? Math.min(1, statsTab.hw.vramUsedMib / Math.max(1, statsTab.hw.vramTotalMib)) : 0
-                                readout: statsTab.hw ? Logic.fmtMib(statsTab.hw.vramUsedMib) + " / "
-                                                          + Logic.fmtMib(statsTab.hw.vramTotalMib) : ""
-                                segments: statsTab.vramSegs
-                                legend: statsTab.vramSegs
-                                spark: statsTab.hw ? (statsTab.hw.hist.gpu_mem_used || []) : []
-                            }
-                            GaugeRing {
-                                Layout.alignment: Qt.AlignHCenter
-                                visible: page.backend.statShowHardware && statsTab.hw !== null
-                                         && statsTab.hw.ramTotalMib > 0 && statsTab.hw.ramUsedMib >= 0
-                                name: i18n("RAM")
-                                frac: statsTab.hw ? Math.min(1, statsTab.hw.ramUsedMib / Math.max(1, statsTab.hw.ramTotalMib)) : 0
-                                readout: statsTab.hw ? Logic.fmtMib(statsTab.hw.ramUsedMib) + " / "
-                                                          + Logic.fmtMib(statsTab.hw.ramTotalMib) : ""
-                                spark: statsTab.hw ? (statsTab.hw.hist.ram_used || []) : []
                             }
                         }
 

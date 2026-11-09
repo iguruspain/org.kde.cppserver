@@ -23,9 +23,10 @@
 #
 # Config : ${XDG_CONFIG_HOME:-~/.config}/cppserver/servers.json
 # Runtime: ${XDG_CACHE_HOME:-~/.cache}/cppserver/logs/<id>.{log,pid}
-#          <id>.strata holds the slug of a `strata launch --preset` server's
-#          preset: the launcher exits while its engine keeps serving, so the
-#          pidfile is re-pointed at the engine found in strata's runtime state.
+#          <id>.strata holds the preset NAME of a `strata launch --preset`
+#          server: the launcher exits while its engine keeps serving, so the
+#          pidfile is re-pointed at the engine found in strata's runtime state,
+#          and the Logs tab tails strata's own <slug>.engine.log.
 set -uo pipefail
 
 cmd="${1:-}"
@@ -54,17 +55,21 @@ slug() {
 # ── strata launch ───────────────────────────────────────────────────────────
 # `strata launch --preset NAME --no-tui` is a short-lived launcher: it exits
 # once the engine answers, leaving the engine detached. To keep tracking the
-# real engine, start() records the preset slug in "<id>.strata" when the
+# real engine, start() records the raw preset name in "<id>.strata" when the
 # command looks like that, and statusall re-points the pidfile at the engine.
 
-# Slug of the preset used by the command, "" when it does not use one.
+# Raw preset name used by the command (single- or double-quoted or bare),
+# "" when it does not use one. strata's own slug is slug(name).
 strata_preset_of() {
     local name
     name="$(printf '%s' "$1" | sed -nE 's/.*--preset[[:space:]]+"([^"]*)".*/\1/p')"
     if [[ -z "$name" ]]; then
-        name="$(printf '%s' "$1" | sed -nE 's/.*--preset[[:space:]]+([^"[:space:]][^[:space:]]*).*/\1/p')"
+        name="$(printf '%s' "$1" | sed -nE "s/.*--preset[[:space:]]+'([^']*)'.*/\1/p")"
     fi
-    if [[ -n "$name" ]]; then slug "$name"; fi
+    if [[ -z "$name" ]]; then
+        name="$(printf '%s' "$1" | sed -nE 's/.*--preset[[:space:]]+([^"'"'"'[:space:]][^[:space:]]*).*/\1/p')"
+    fi
+    if [[ -n "$name" ]]; then printf '%s\n' "$name"; fi
 }
 
 # Live engine pid strata recorded for the launch profile, "" when none.
@@ -160,13 +165,13 @@ start() {
     fi
     ensure_log_root
     local logfile="$LOG_ROOT/$id.log" pidfile="$LOG_ROOT/$id.pid" marker="$LOG_ROOT/$id.strata"
-    local preset_slug=""
+    local preset_name=""
     if [[ "$command" == *"strata launch"* && "$command" == *"--preset"* ]]; then
-        preset_slug="$(strata_preset_of "$command")"
+        preset_name="$(strata_preset_of "$command")"
     fi
 
     if [[ -n "$(read_pid "$pidfile")" ]] ||
-       { [[ -n "$preset_slug" ]] && [[ -n "$(strata_engine_pid "$preset_slug")" ]]; }; then
+       { [[ -n "$preset_name" ]] && [[ -n "$(strata_engine_pid "$(slug "$preset_name")")" ]]; }; then
         echo "error=already_running"
         exit 4
     fi
@@ -192,8 +197,8 @@ start() {
     fi
 
     printf '%s %s\n' "$pid" "$(proc_start "$pid")" > "$pidfile"
-    if [[ -n "$preset_slug" ]]; then
-        printf '%s\n' "$preset_slug" > "$marker"
+    if [[ -n "$preset_name" ]]; then
+        printf '%s\n' "$preset_name" > "$marker"
     else
         rm -f "$marker" 2>/dev/null
     fi
@@ -280,22 +285,36 @@ statusall() {
     fi
     ensure_log_root
     echo "cfgmtime=$(cfgmtime)"
-    local name id pid eslug epid
+    local name id pid ename eslug epid logpath eeng
     for name in "$@"; do
         id="$(slug "$name")"
         pid="$(read_pid "$LOG_ROOT/$id.pid")"
-        if [[ -z "$pid" && -r "$LOG_ROOT/$id.strata" ]]; then
+        ename=""
+        if [[ -r "$LOG_ROOT/$id.strata" ]]; then
+            ename="$(head -n 1 "$LOG_ROOT/$id.strata" 2>/dev/null)"
+        fi
+        if [[ -z "$pid" && -n "$ename" ]]; then
             # strata launch server: the launcher exits while the engine keeps
             # serving. Re-point the pidfile at the engine strata recorded.
-            eslug="$(head -n 1 "$LOG_ROOT/$id.strata" 2>/dev/null)"
+            eslug="$(slug "$ename")"
             epid="$(strata_engine_pid "$eslug")"
+            if [[ -z "$epid" ]]; then
+                epid="$(strata_engine_pid "$ename")"   # legacy: marker held a slug
+            fi
             if [[ -n "$epid" ]]; then
                 printf '%s %s\n' "$epid" "$(proc_start "$epid")" > "$LOG_ROOT/$id.pid"
                 pid="$epid"
             fi
         fi
+        logpath="$LOG_ROOT/$id.log"
+        if [[ -n "$ename" ]]; then
+            # strata writes the engine's own output; tail it when present.
+            eeng="$STATE_DIR"/strata/launch/"$(slug "$ename")".engine.log
+            if [[ ! -r "$eeng" ]]; then eeng="$STATE_DIR"/strata/launch/"$ename".engine.log; fi
+            [[ -r "$eeng" ]] && logpath="$eeng"
+        fi
         if [[ -n "$pid" ]]; then
-            printf '%s alive=1 pid=%s logfile=%s\n' "$id" "$pid" "$LOG_ROOT/$id.log"
+            printf '%s alive=1 pid=%s logfile=%s\n' "$id" "$pid" "$logpath"
         else
             printf '%s alive=0\n' "$id"
         fi
@@ -313,10 +332,15 @@ logread() {
         exit 2
     fi
     ensure_log_root
-    local real_root real_path
+    local real_root real_path real_launch
     real_root="$(realpath "$LOG_ROOT")"
     real_path="$(realpath "$path" 2>/dev/null || true)"
-    if [[ -z "$real_path" || "${real_path#"$real_root"/}" == "$real_path" ]]; then
+    real_launch="$(realpath "$STATE_DIR/strata/launch" 2>/dev/null || true)"
+    local in_logs=0 in_engine=0
+    [[ -n "$real_path" && "${real_path#"$real_root"/}" != "$real_path" ]] && in_logs=1
+    [[ -n "$real_path" && -n "$real_launch" && "${real_path#"$real_launch"/}" != "$real_path"
+       && "$real_path" == *.engine.log ]] && in_engine=1
+    if [[ $in_logs -eq 0 && $in_engine -eq 0 ]]; then
         echo "error=invalid_log_path"
         exit 2
     fi
@@ -409,6 +433,15 @@ gpu() {
     fi
     awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2}
          END{if (t) {print "ramtotal=" int(t/1024); print "ramused=" int((t-a)/1024)}}' /proc/meminfo
+    # static CPU geometry so the CPU ring readout works even without strata:
+    # one entry per physical core in thread_siblings_list (identical across a
+    # core's SMT siblings); fall back to nproc when topology is absent
+    local thr cor
+    thr=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo)
+    cor=$(cat /sys/devices/system/cpu/cpu*/topology/thread_siblings_list 2>/dev/null | sort -u | wc -l)
+    [[ "$cor" =~ ^[0-9]+$ && "$cor" -gt 0 ]] || cor="$thr"
+    [[ "$thr" =~ ^[0-9]+$ && "$thr" -gt 0 ]] && echo "threads=$thr"
+    [[ "$cor" =~ ^[0-9]+$ && "$cor" -gt 0 ]] && echo "cores=$cor"
     c() { awk '/^cpu /{n=0; for(i=2;i<=NF;i++)n+=$i; print n" "$5}' /proc/stat; }
     local t1 i1 t2 i2
     read -r t1 i1 <<<"$(c)"

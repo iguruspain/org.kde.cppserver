@@ -389,7 +389,10 @@ PlasmoidItem {
         run(Logic.scriptCmd() + " gpu", function (code, out) {
             gpuInfo = code === 0 ? Logic.parseGpu(out) : {}
         })
-        statsMap = m
+        // merge, never wipe: a slow probe replies after this tick, and wiping
+        // here loses its "metrics" state → the endpoint chain would restart
+        // from /health every tick and starve the dashboard
+        statsMap = Object.assign({}, statsMap, m)
     }
 
     function applyProbe(id, ep, code, out, isLlama) {
@@ -399,7 +402,10 @@ PlasmoidItem {
             entry.err = body.indexOf("error=") === 0 ? body.slice(6) : "unreachable"
         } else if (body.charAt(0) === "{") {
             var j = Logic.safeJsonParse(body, null)
-            entry.kind = (j && j.service === "strata") ? "strata" : "json"
+            // strata answers /health with service=strata, but /metrics does
+            // not carry that key: its engine+history sections label it
+            entry.kind = (j && (j.service === "strata" || (j.engine && j.history)))
+                         ? "strata" : "json"
             if (ep === "health") entry.health = body
             else entry.body = body
         } else if (body.indexOf("llm:") !== -1 || body.indexOf("llamacpp:") !== -1 || body.charAt(0) === "#") {
@@ -431,7 +437,8 @@ PlasmoidItem {
                     statsMap = sm2
                 })
             }
-        } else if (ep === "metrics" && entry.kind !== "llama" && entry.err === "") {
+        } else if (ep === "metrics" && entry.kind !== "llama" && entry.kind !== "strata"
+                   && entry.err === "") {
             entry.err = "no_metrics"      // llama probe answered but not Prometheus
             var smx = Object.assign({}, statsMap)
             smx[id] = entry
@@ -464,7 +471,7 @@ PlasmoidItem {
         repeat: true
         onTriggered: root.pollStats()
     }
-    onExpandedChanged: if (expanded && homeDir !== "") checkStatuses()
+    onExpandedChanged: if (root.expanded && homeDir !== "") checkStatuses()
 
     Component.onCompleted: {
         loadUiState()

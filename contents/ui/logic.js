@@ -338,6 +338,14 @@ function fmtMib(v) {
     if (typeof v !== "number" || !isFinite(v) || v < 0) return "–";
     return v >= 1024 ? (v / 1024).toFixed(1) + " GiB" : Math.round(v) + " MiB";
 }
+// "21.7 / 25.6 GiB": one unit instead of two, so gauge readouts never elide
+function fmtMibPair(used, total) {
+    if (typeof used !== "number" || !isFinite(used) || used < 0 ||
+        typeof total !== "number" || !isFinite(total) || total < 0) return "–";
+    if (total >= 1024 || used >= 1024)
+        return (used / 1024).toFixed(1) + " / " + (total / 1024).toFixed(1) + " GiB";
+    return Math.round(used) + " / " + Math.round(total) + " MiB";
+}
 function fmtTokens(v) {
     if (typeof v !== "number" || !isFinite(v) || v < 0) return "–";
     if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
@@ -392,12 +400,14 @@ function parseGpu(text) {
     const g = {
         procs: {},
         gpuUsedMib: -1, gpuTotalMib: -1, gpuUtil: -1, gpuTemp: -1, gpuPower: -1,
-        ramUsedMib: -1, ramTotalMib: -1, cpuPct: -1
+        ramUsedMib: -1, ramTotalMib: -1, cpuPct: -1,
+        cpuCores: -1, cpuThreads: -1
     };
     const keys = {
         gpuused: "gpuUsedMib", gputotal: "gpuTotalMib", gpuutil: "gpuUtil",
         gputemp: "gpuTemp", gpupow: "gpuPower",
-        ramused: "ramUsedMib", ramtotal: "ramTotalMib", cpu: "cpuPct"
+        ramused: "ramUsedMib", ramtotal: "ramTotalMib", cpu: "cpuPct",
+        cores: "cpuCores", threads: "cpuThreads"
     };
     String(text || "").split("\n").forEach(function (line) {
         const eq = line.indexOf("=");

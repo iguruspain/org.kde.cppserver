@@ -29,7 +29,9 @@ Item {
                                     : Kirigami.Theme.highlightColor
 
     readonly property real ringSize: Kirigami.Units.gridUnit * 3.4
-    implicitWidth: Math.max(ringSize, subText.width, sparkStrip.width, legendRow.width)
+    // fixed sub-rows: every ring gets the same implicitWidth so grid rows
+    // keep the rings perfectly aligned no matter the label text
+    implicitWidth: Math.max(ringSize, gauge.readout !== "" ? subText.width : 0, legendRow.width)
     implicitHeight: ringSize
                       + (gauge.readout !== "" ? subText.height + 2 : 0)
                       + (Array.isArray(gauge.spark) && gauge.spark.length > 1 ? sparkStrip.height + 3 : 0)
@@ -82,7 +84,7 @@ Item {
         anchors.topMargin: 2
         anchors.horizontalCenter: parent.horizontalCenter
         visible: gauge.readout !== ""
-        width: Math.min(implicitWidth, gauge.ringSize + Kirigami.Units.gridUnit)
+        width: gauge.ringSize + Kirigami.Units.gridUnit
         elide: Text.ElideMiddle
         horizontalAlignment: Text.AlignHCenter
         text: gauge.readout !== "" ? gauge.readout : " "
@@ -96,8 +98,10 @@ Item {
         anchors.topMargin: 3
         anchors.horizontalCenter: parent.horizontalCenter
         visible: Array.isArray(gauge.spark) && gauge.spark.length > 1
-        width: Math.max(gauge.ringSize * 0.8, subText.width)
-        implicitHeight: 18
+        width: gauge.ringSize
+        // implicitHeight alone does nothing inside a plain Item: the strip
+        // would be 0 px tall and never paint
+        height: 18
         series: gauge.spark
         lineColor: gauge.sparkColor
     }

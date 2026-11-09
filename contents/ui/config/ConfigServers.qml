@@ -195,10 +195,8 @@ KCM.SimpleKCM {
     readonly property var templates: [
         { label: "llama.cpp",           name: "llama.cpp",           port: 8080,
           command: "llama-server --models-preset {CONFIG_FILE} --host {HOST} --port {PORT}" },
-        { label: "strata (launch preset)", name: "strata", port: 18888,
-          command: "strata launch --preset {PRESET} --no-tui --host {HOST} --port {PORT}" },
-        { label: "strata (serve)",        name: "strata", port: 18888,
-          command: "strata serve --profile {CONFIG_FILE} --host {HOST} --port {PORT}" },
+        { label: "strata (launch)",        name: "strata", port: 18888,
+          command: "strata launch --preset {PRESET} --no-tui" },
         { label: "audio.cpp",           name: "audio.cpp",           port: 8081,
           command: "audiocpp_server --config {CONFIG_FILE} --host {HOST} --port {PORT}" },
         { label: "stable-diffusion.cpp", name: "stable-diffusion.cpp", port: 8082,
@@ -374,6 +372,8 @@ KCM.SimpleKCM {
                 required property string preset
                 required property bool enabled
 
+                readonly property bool strataLaunch: /\bstrata\s+launch\b/.test(command)
+                                                     && command.includes("--preset")
                 readonly property bool expanded: page.expandedId === sid
 
                 width: ListView.view ? ListView.view.width : 0
@@ -527,6 +527,7 @@ KCM.SimpleKCM {
 
                         Labeled {
                             label: i18n("Preset (strata launch):")
+                            visible: card.strataLaunch
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Kirigami.Units.smallSpacing
@@ -568,6 +569,9 @@ KCM.SimpleKCM {
 
                         Labeled {
                             label: i18n("Host / Port:")
+                            // strata launch binds what its preset/profile says;
+                            // the widget monitors the default port instead.
+                            visible: !card.strataLaunch
                             RowLayout {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
@@ -591,6 +595,7 @@ KCM.SimpleKCM {
 
                         Labeled {
                             label: i18n("Config file:")
+                            visible: !card.strataLaunch
                             RowLayout {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
