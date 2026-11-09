@@ -283,6 +283,8 @@ ColumnLayout {
                     // content and loops; override with a plain value so the
                     // layout sizes us via preferredWidth instead.
                     implicitWidth: Layout.preferredWidth
+                    implicitHeight: Kirigami.Theme.defaultFont.pixelSize
+                                    + Math.round(Kirigami.Units.gridUnit * 0.9)
                     // The Plasma ComboBox wrapper loops when a layout binding
                     // feeds implicitWidth back, so size it imperatively from
                     // the measurer's text instead.
