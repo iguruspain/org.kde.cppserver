@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`cpp servers` is a KDE Plasma 6 plasmoid (package id `org.kde.cppserver`, v1.7.7, MIT) that configures, starts/stops, and live-tails local C++ inference servers (llama.cpp, strata — via `strata launch --preset` —, audio.cpp, stable-diffusion.cpp, or any custom command) and shows a live per-server/machine stats dashboard. Pure QML + one bash backend script — **no C++ in this repo** despite the name. Form factors: desktop, mediacenter, handset, plus system tray (`X-Plasma-NotificationArea`).
+`cpp servers` is a KDE Plasma 6 plasmoid (package id `org.kde.cppserver`, v1.8.0, MIT) that configures, starts/stops, and live-tails local C++ inference servers (llama.cpp, strata — via `strata launch --preset` —, audio.cpp, stable-diffusion.cpp, or any custom command) and shows a live per-server/machine stats dashboard. Pure QML + one bash backend script — **no C++ in this repo** despite the name. Form factors: desktop, mediacenter, handset, plus system tray (`X-Plasma-NotificationArea`).
 
 ## Architecture & Data Flow
 
