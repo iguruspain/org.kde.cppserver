@@ -53,7 +53,11 @@ Canvas {
             if (p.v > hi) hi = p.v
         })
         if (hi <= lo) {
-            hi = lo + 1          // flat series: center the line
+            // flat series: lift the axis around the value so the line sits
+            // mid-height — an all-zero idle window would otherwise glue
+            // itself to the bottom edge and read as a missing sparkline
+            lo = lo - 1
+            hi = hi + 1
         }
         // draw with the eased axis: retarget, paint uses the current values
         spark.viewLo = lo

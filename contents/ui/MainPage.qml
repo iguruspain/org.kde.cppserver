@@ -699,11 +699,15 @@ ColumnLayout {
                         if (cur >= 0 || mean >= 0) {
                             // strata draws its own server-side series; when
                             // no server reports history (llama.cpp), sample
-                            // the machine-wide tok_s the gpu poll collected
+                            // the machine-wide tok_s the gpu poll collected.
+                            // The big number is the CURRENT speed — generating
+                            // servers only; with none generating it reads 0.0
+                            // (the session mean is only ever the subtitle, so
+                            // a sticky "mean" never props the tile back up)
                             if (!tokSpark.length && hw && hw.hist)
                                 tokSpark = hw.hist.tok_s || []
                             out.push({ label: i18n("Speed"),
-                                       value: statsTab.fmt1(cur >= 0 ? cur : Math.max(0, mean)),
+                                       value: statsTab.fmt1(cur >= 0 ? cur : 0),
                                        unit: " tok/s",
                                        sub: mean >= 0 ? i18n("mean %1 tok/s", statsTab.fmt1(mean)) : "",
                                        spark: tokSpark,
