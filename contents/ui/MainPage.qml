@@ -500,7 +500,7 @@ ColumnLayout {
                         out.push({
                             id: s.id, name: s.name || s.id, s: s,
                             running: !!page.backend.runningMap[s.id],
-                            st: e ? Logic.parseStats(e) : null
+                            st: e ? Logic.parseStats(e, page.backend.reqSeenOf(s.id)) : null
                         })
                     })
                     return out
@@ -593,20 +593,15 @@ ColumnLayout {
                     }
                     return segs
                 }
-                // One Recent-requests table for ALL servers, newest first.
-                readonly property var reqRows: Logic.mergeReqs(
-                    statsTab.rows.map(function (r) {
-                        return { name: r.name, reqs: r.st ? r.st.reqs : [] }
-                    }), 8)
-
+                // the recent-requests table lives in ReqTable.qml: it gets
+                // the stream (backend.statsReqRows) verbatim and owns its
+                // measurement/stretching
                 // Stable Repeater inputs + live lookup maps (see above).
                 property var rowsById: ({})
                 property var rowIds: []
                 property var tilesById: ({})
                 property var tileIds: []
                 property var tileStale: ({})
-                property var reqTable: []
-                property string reqSig: ""
                 // Tiles depend on the Stats config toggles too.
                 readonly property var tileGate: [page.backend.statShowTps,
                                                 page.backend.statShowHardware,
@@ -648,17 +643,6 @@ ColumnLayout {
                     })
                     statsTab.tilesById = tById
                     if (tIds.join("|") !== statsTab.tileIds.join("|")) statsTab.tileIds = tIds
-
-                    // Rebuild the request table only when a row actually
-                    // appears/changes — idle servers then keep it untouched.
-                    var sig = statsTab.reqRows.map(function (r) {
-                        return [r.name, r.at, r.inTok, r.outTok, r.durS, r.tps,
-                                r.finish, r.reused].join(",")
-                    }).join("|")
-                    if (sig !== statsTab.reqSig) {
-                        statsTab.reqSig = sig
-                        statsTab.reqTable = statsTab.reqRows
-                    }
                 }
 
                 readonly property color cardColor: Qt.rgba(Kirigami.Theme.textColor.r,
@@ -1114,12 +1098,13 @@ ColumnLayout {
                         Rectangle {
                             id: reqCard
                             Layout.fillWidth: true
-                            visible: page.backend.statShowEvents && statsTab.reqRows.length > 0
+                            visible: page.backend.statShowEvents && page.backend.statsReqRows.length > 0
                             radius: Kirigami.Units.cornerRadius
                             color: statsTab.cardColor
                             border.width: 1
                             border.color: statsTab.cardBorder
                             implicitHeight: reqCol.implicitHeight + Kirigami.Units.largeSpacing
+
 
                             readonly property var tot: {
                                 var t = { reqs: 0, tin: 0, tout: 0, reused: 0 }
@@ -1139,137 +1124,16 @@ ColumnLayout {
                                 anchors.margins: Kirigami.Units.smallSpacing
                                 spacing: 1
 
-                                component ReqRow: RowLayout {
-                                    required property string time
-                                    required property string server
-                                    required property string status
-                                    required property string tIn
-                                    required property string tReuse
-                                    required property string tOut
-                                    required property string tps
-                                    required property string dur
-                                    required property bool header
-                                    spacing: Kirigami.Units.largeSpacing
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 66
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                            family: "monospace"
-                                        }
-                                        opacity: header ? 0.75 : 0.9
-                                        text: time
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.fillWidth: true
-                                        Layout.minimumWidth: 60
-                                        elide: Text.ElideRight
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 1
-                                        text: server
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 56
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 1
-                                        text: status
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 44
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        horizontalAlignment: Text.AlignRight
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 0.9
-                                        text: tIn
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 44
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        horizontalAlignment: Text.AlignRight
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 0.9
-                                        text: tReuse
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 44
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        horizontalAlignment: Text.AlignRight
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 0.9
-                                        text: tOut
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 42
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        horizontalAlignment: Text.AlignRight
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 0.9
-                                        text: tps
-                                    }
-                                    PlasmaComponents.Label {
-                                        Layout.preferredWidth: 40
-                                        Layout.minimumWidth: Layout.preferredWidth
-                                        horizontalAlignment: Text.AlignRight
-                                        font {
-                                            pointSize: Kirigami.Theme.smallFont.pointSize
-                                            bold: header
-                                        }
-                                        opacity: header ? 0.75 : 0.9
-                                        text: dur
-                                    }
-                                }
-
-                                ReqRow {
-                                    header: true
-                                    time: i18n("Time")
-                                    server: i18n("Server")
-                                    status: i18n("State")
-                                    tIn: i18n("In")
-                                    tReuse: i18n("Reused")
-                                    tOut: i18n("Out")
-                                    tps: "t/s"
-                                    dur: i18n("Dur")
-                                }
-
-                                Repeater {
-                                    model: statsTab.reqTable
-                                    delegate: ReqRow {
-                                        required property var modelData
-                                        time: modelData.at > 0
-                                              ? Qt.formatDateTime(new Date(modelData.at * 1000), "HH:mm:ss")
-                                              : "–"
-                                        server: modelData.name || ""
-                                        status: modelData.finish || ""
-                                        tIn: modelData.inTok > 0 ? Logic.fmtTokens(modelData.inTok) : "–"
-                                        tReuse: page.backend.statShowTokens
-                                                && modelData.reused > 0
-                                                ? Logic.fmtTokens(modelData.reused) : "–"
-                                        tOut: page.backend.statShowTokens
-                                              ? (modelData.outTok > 0 ? Logic.fmtTokens(modelData.outTok) : "–") : ""
-                                        tps: modelData.tps > 0 ? modelData.tps.toFixed(0) : "–"
-                                        dur: modelData.durS > 0 ? modelData.durS.toFixed(1) + "s" : "–"
-                                        header: false
-                                    }
+                                // One grid for header + data: ReqTable
+                                // measures header and values together, so
+                                // they can never disagree, and stretches
+                                // the token columns to fill the card.
+                                ReqTable {
+                                    id: reqTab
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: reqTab.preferredH
+                                    streamRows: page.backend.statsReqRows
+                                    showTokens: page.backend.statShowTokens
                                 }
 
                                 PlasmaComponents.Label {

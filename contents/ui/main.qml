@@ -399,6 +399,38 @@ PlasmoidItem {
         statsMap = Object.assign({}, statsMap, m)
     }
 
+    // The request stream: every parsed request — strata's /metrics
+    // requests and llama.cpp print_timing log rows — converges here,
+    // merged newest-first and already formatted per column. The Stats
+    // tab consumes it verbatim; it is the table's single data source.
+    property var statsReqRows: []
+    function refreshReqStream() {
+        var entries = []
+        servers.forEach(function (s) {
+            var e = statsMap[s.id]
+            if (!e) return
+            var st = Logic.parseStats(e, reqSeenOf(s.id))
+            entries.push({ name: s.name || s.id, reqs: st.reqs })
+        })
+        var merged = Logic.mergeReqs(entries, 8).map(Logic.fmtReqRow)
+        // idle servers produce an identical stream every tick: keep the
+        // same array so ReqTable never re-measures/rebinds for nothing
+        if (JSON.stringify(merged) !== JSON.stringify(statsReqRows))
+            statsReqRows = merged
+    }
+
+    // llama.cpp logs carry no wall-clock: remember when each task id was
+    // first observed (per server) so the shared request table can sort.
+    property var reqSeenMaps: ({})
+    function reqSeenOf(id) {
+        var m = reqSeenMaps[id]
+        if (!m) {
+            m = {}
+            reqSeenMaps[id] = m
+        }
+        return m
+    }
+
     function applyProbe(id, ep, code, out, isLlama) {
         var body = String(out || "")
         var entry = { ep: ep, kind: "none", err: "", health: "", body: "", log: "", at: Date.now() }
@@ -439,6 +471,7 @@ PlasmoidItem {
                     var sm2 = Object.assign({}, statsMap)
                     sm2[id] = cur
                     statsMap = sm2
+                    refreshReqStream()
                 })
             }
         } else if (ep === "metrics" && entry.kind !== "llama" && entry.kind !== "strata"
@@ -454,6 +487,7 @@ PlasmoidItem {
         if (entry.kind === "json" && entry.health) tal[id] = Logic.healthTally(entry.health)
         else tal[id] = ""
         statsTally = tal
+        refreshReqStream()
     }
 
     // ── Timers ─────────────────────────────────────────────────────────────

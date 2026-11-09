@@ -352,6 +352,13 @@ function fmtTokens(v) {
     if (v >= 1e4) return Math.round(v / 1e3) + "k";
     return String(Math.round(v));
 }
+// exact grouped figure ("95,000", not "95k"): the request table stretches
+// its token columns with the popup, so it shows the real count
+function fmtTokensFull(v) {
+    if (typeof v !== "number" || !isFinite(v) || v < 0) return "–";
+    // grouping by hand: Qt.* globals are not available inside .pragma library
+    return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+}
 function fmtDur(s) {
     if (typeof s !== "number" || !isFinite(s) || s < 0) return "–";
     if (s >= 3600) return Math.floor(s / 3600) + " h " + Math.floor((s % 3600) / 60) + " m";
@@ -476,7 +483,7 @@ function pushHist(prev, g, cap) {
 // llama.cpp /metrics (needs --metrics): llm:prompt_tokens_total,
 //   llm:generated_tokens_total, llm:decode_seconds_sum_total, llm:n_ctx,
 //   llm:urange, llm:predictions_active (+ old llm:prom_total/gen_total names).
-function parseStats(entry) {
+function parseStats(entry, seen) {
     const e = entry || {};
     const s = {
         kind: e.kind || "none", err: e.err || "",
@@ -591,7 +598,7 @@ function parseStats(entry) {
         // field from the log tail (print_timing lines).
         if (e.log) {
             const ls = { reqs: [], meanTps: -1 };
-            llamaLogStats(e.log, ls);
+            llamaLogStats(e.log, ls, seen, Math.floor(Date.now() / 1000));
             if (!s.model && ls.model) s.model = ls.model;
             if (s.ctxMax < 0 && ls.ctxMax > 0) s.ctxMax = ls.ctxMax;
             if (s.ctxUsed < 0 && ls.ctxUsed >= 0) s.ctxUsed = ls.ctxUsed;
@@ -610,6 +617,28 @@ function parseStats(entry) {
         s.state = "idle";
     }
     return s;
+}
+
+// One row of the shared request stream: a parsed request -> the final
+// display string per column key (numbers included). i18n headers are added
+// by the UI; the values here need no localization.
+function fmtReqRow(r) {
+    return {
+        time: r.at > 0 ? fmtClock(r.at) : "–",
+        server: r.name || "",
+        status: r.finish || "",
+        inTok: r.inTok > 0 ? fmtTokensFull(r.inTok) : "–",
+        reused: r.reused > 0 ? fmtTokensFull(r.reused) : "–",
+        outTok: r.outTok > 0 ? fmtTokensFull(r.outTok) : "–",
+        tps: r.tps > 0 ? r.tps.toFixed(0) : "–",
+        dur: r.durS > 0 ? r.durS.toFixed(1) + "s" : "–"
+    };
+}
+// local HH:mm:ss without Qt.* (not reliably available in .pragma library)
+function fmtClock(epochS) {
+    const d = new Date(epochS * 1000);
+    const p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
 }
 
 // Recent requests across all servers, newest first (rows without a real
@@ -637,7 +666,7 @@ function mergeReqs(entries, max) {
 //   slot print_timing: ...        eval time = T ms / O tokens
 //   ... cur speed = 45.2 | avg speed = 43.2 (newer builds)
 //   ... avg speed = 43.2 t/s
-function llamaLogStats(text, s) {
+function llamaLogStats(text, s, seen, now) {
     const t = String(text || "");
     let m;
     m = /n_ctx\s*=\s*(\d+)/.exec(t);
@@ -688,8 +717,18 @@ function llamaLogStats(text, s) {
         sumOut += r.outTok || 0;
         const dur = (r.totalMs || ((r.promptMs || 0) + (r.evalMs || 0))) / 1000;
         const outT = r.outTok || 0;
+        // llama timestamps are relative to boot, not wall-clock: stamp each
+        // task the first time it is seen (the per-server map persists in
+        // main.qml) so the shared table sorts llama rows correctly.
+        let stamp = 0;
+        if (seen) {
+            if (seen[id] === undefined) seen[id] = now || 0;
+            stamp = seen[id];
+        }
+        const decS = (r.evalMs || 0) / 1000;
         s.reqs.push({
-            at: 0, durS: dur, tps: dur > 0 ? outT / dur : 0,
+            at: stamp, durS: dur,
+            tps: decS > 0 ? outT / decS : (dur > 0 ? outT / dur : 0),
             inTok: r.inTok || 0, outTok: outT, finish: "stop"
         });
     });
