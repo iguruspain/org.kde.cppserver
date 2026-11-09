@@ -534,6 +534,10 @@ ColumnLayout {
                         cpuPct: d(g.cpuPct),
                         diskRead: d(g.diskReadMBs),
                         procs: procs,
+                        // server id -> VRAM MiB, already resolved by the
+                        // script (pid tree: engine children count for the
+                        // session that started them)
+                        byServer: g.vramBy || {},
                         gpuName: g.gpuName || "",
                         cpuName: g.cpuName || "",
                         cores: g.cpuCores > 0 ? g.cpuCores : 0,
@@ -561,11 +565,14 @@ ColumnLayout {
                     statsTab.rows.forEach(function (r) {
                         if (!r.running || !r.st) return
                         var own = -1
-                        var run = page.backend.runningMap[r.id]
-                        var pid = run && run.pid !== undefined ? String(run.pid) : ""
-                        if (pid !== "" && m.procs[pid] !== undefined) own = m.procs[pid]
-                        else if (r.st.kind === "strata" && r.st.ownVramMib >= 0) own = r.st.ownVramMib
-                        else if (r.st.kind === "llama" && r.st.logVramUsedMib >= 0) own = r.st.logVramUsedMib - known
+                        if (m.byServer[r.id] !== undefined) own = m.byServer[r.id]
+                        else {
+                            var run = page.backend.runningMap[r.id]
+                            var pid = run && run.pid !== undefined ? String(run.pid) : ""
+                            if (pid !== "" && m.procs[pid] !== undefined) own = m.procs[pid]
+                            else if (r.st.kind === "strata" && r.st.ownVramMib >= 0) own = r.st.ownVramMib
+                            else if (r.st.kind === "llama" && r.st.logVramUsedMib >= 0) own = r.st.logVramUsedMib - known
+                        }
                         if (!(own > 0)) return
                         own = Math.min(own, m.vramTotalMib - known)
                         if (!(own > 0)) return
@@ -676,6 +683,11 @@ ColumnLayout {
                                 tokSpark = r.st.hist.tok_s || []
                         })
                         if (cur >= 0 || mean >= 0) {
+                            // strata draws its own server-side series; when
+                            // no server reports history (llama.cpp), sample
+                            // the machine-wide tok_s the gpu poll collected
+                            if (!tokSpark.length && hw && hw.hist)
+                                tokSpark = hw.hist.tok_s || []
                             out.push({ label: i18n("Speed"),
                                        value: statsTab.fmt1(cur >= 0 ? cur : Math.max(0, mean)),
                                        unit: " tok/s",

@@ -405,7 +405,7 @@ function parsePrometheus(text) {
 // that ring/tile.
 function parseGpu(text) {
     const g = {
-        procs: {},
+        procs: {}, vramBy: {},
         gpuUsedMib: -1, gpuTotalMib: -1, gpuUtil: -1, gpuTemp: -1, gpuPower: -1,
         gpuPowerLimit: -1,
         ramUsedMib: -1, ramTotalMib: -1, cpuPct: -1,
@@ -430,6 +430,12 @@ function parseGpu(text) {
             const c = v.split(":");
             const pid = c[0], mib = Number(c[1]);
             if (pid && isFinite(mib)) g.procs[pid] = mib;
+        } else if (k === "vramowner") {
+            // "<server id>=<MiB>", already resolved by the script: every
+            // VRAM-holding pid traced up to the session that started it
+            const c = v.split("=");
+            const mib = Number(c[1]);
+            if (c[0] && isFinite(mib)) g.vramBy[c[0]] = (g.vramBy[c[0]] || 0) + mib;
         } else if (strs[k] !== undefined) {
             if (v) g[strs[k]] = v;
         } else if (keys[k] !== undefined) {
@@ -456,7 +462,11 @@ function gpuReadout(name) {
 function pushHist(prev, g, cap) {
     const map = { cpu: "cpuPct", gpu_util: "gpuUtil", gpu_temp: "gpuTemp",
                   gpu_power: "gpuPower", ram_used: "ramUsedMib",
-                  gpu_mem_used: "gpuUsedMib", disk_read_mb: "diskReadMBs" };
+                  gpu_mem_used: "gpuUsedMib", disk_read_mb: "diskReadMBs",
+                  // machine token-speed sample main.qml injects into the gpu
+                  // result (max last-known t/s across running servers): the
+                  // Speed tile sparkline without any server-side history
+                  tok_s: "tokSample" };
     const out = {};
     Object.keys(map).forEach(function (k) {
         const old = (prev && Array.isArray(prev[k])) ? prev[k] : [];
@@ -653,7 +663,8 @@ function fmtReqRow(r) {
         inTok: r.inTok > 0 ? fmtTokensFull(r.inTok) : "–",
         reused: r.reused > 0 ? fmtTokensFull(r.reused) : "–",
         outTok: r.outTok > 0 ? fmtTokensFull(r.outTok) : "–",
-        tps: r.tps > 0 ? r.tps.toFixed(0) : "–",
+        // exact measurement, no rounding tricks in the table
+        tps: r.tps > 0 ? r.tps.toFixed(2) : "-",
         dur: r.durS > 0 ? r.durS.toFixed(1) + "s" : "–"
     };
 }

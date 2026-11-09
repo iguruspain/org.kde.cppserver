@@ -73,7 +73,7 @@ PlasmoidItem {
     property var statsTally: ({})        // id -> "model (vX)" (generic /health servers)
     property var statsStickMaps: ({})    // id -> last-good scalars (llama anti-flicker)
     property var statsModels: ({})       // id -> model name recovered from the log
-    property var statsScanned: ({})      // id -> whole-log marker scan already done
+    property var statsScanAt: ({})       // id -> last whole-log marker scan (hot-swap re-scan)
     property var gpuInfo: ({})           // parseGpu(): per-pid VRAM + machine totals
     property var gpuHist: ({})           // pushHist(): rolling ~60-sample machine history
 
@@ -395,6 +395,15 @@ PlasmoidItem {
         // machine block works with no server reporting anything
         run(Logic.scriptCmd() + " gpu", function (code, out) {
             var g = code === 0 ? Logic.parseGpu(out) : {}
+            // machine token-speed sample for the Speed tile sparkline: the
+            // freshest last-known t/s across running servers (sticky cache)
+            // — works for llama.cpp servers that keep no server-side history
+            var samp = -1
+            Object.keys(statsStickMaps).forEach(function (sid) {
+                var v = statsStickMaps[sid].tps
+                if (typeof v === "number" && v >= 0 && v > samp) samp = v
+            })
+            if (samp >= 0) g.tokSample = samp
             gpuInfo = g
             if (code === 0) gpuHist = Logic.pushHist(gpuHist, g, 60)
         })
@@ -454,17 +463,25 @@ PlasmoidItem {
         var m, last = ""
         while ((m = rx.exec(String(text || ""))) !== null) last = m[1]
         var name = String(last).split("/").pop()
-        if (name !== "" && statsModels[id] !== name) statsModels[id] = name
+        if (name !== "" && statsModels[id] !== name) {
+            statsModels[id] = name
+            // A model swap resets llama's task ids: the stamps held for
+            // them belong to a dead epoch (a finished row can even show a
+            // future clock). Drop them; this run re-stamps with real time.
+            delete reqSeenMaps[id]
+        }
     }
     // The load marker sits in the startup lines and ages out of every tail
-    // window: ask the script for the marker lines of the WHOLE log, once
-    // per server run, until a model is known.
+    // window: ask the script for the marker lines of the WHOLE log — right
+    // away, then every 30 s while the server runs, so a model hot-swapped
+    // without a restart shows up. The scan is change-driven: identical
+    // markers never touch statsModels (nothing to re-render).
     function scanModelMarkers(id) {
-        statsScanned[id] = true
+        statsScanAt[id] = Date.now()
         var r = runningMap[id]
         if (!r || !r.logfile) return
         ctl("logread " + Logic.shQuote(r.logfile) + " markers", function (code, out) {
-            if (code !== 0 || statsModels[id]) return
+            if (code !== 0) return
             noteModelMarkers(id, out)
         })
     }
@@ -478,7 +495,7 @@ PlasmoidItem {
         statsTally = Logic.withoutKey(statsTally, id)
         delete statsStickMaps[id]
         delete statsModels[id]
-        delete statsScanned[id]
+        delete statsScanAt[id]
         delete reqSeenMaps[id]
     }
     onRunningMapChanged: {
@@ -493,7 +510,16 @@ PlasmoidItem {
 
     function applyProbe(id, ep, code, out, isLlama) {
         var body = String(out || "")
+        var prev = statsMap[id]
         var entry = { ep: ep, kind: "none", err: "", health: "", body: "", log: "", at: Date.now() }
+
+        // A llama.cpp server streams its real state from the log, so the
+        // tail read is issued on EVERY probe tick no matter how this tick
+        // classifies: the transparent/dedup paths below must never be able
+        // to stop the only pump llama has. An empty or failed read during
+        // bootstrap (fresh router log, callback race) is retried next tick;
+        // without that retry a stuck empty entry would stay dead forever.
+        if (ep === "metrics" && isLlama) tailLlamaLog(id)
         if (code !== 0) {
             entry.err = body.indexOf("error=") === 0 ? body.slice(6) : "unreachable"
         } else if (body.charAt(0) === "{") {
@@ -510,53 +536,39 @@ PlasmoidItem {
         } else {
             entry.err = "no_metrics"      // HTML error page, plain-text 404…
         }
+
+        // A llama.cpp server without --metrics 404s /metrics: the probe
+        // carries no data, so it must not touch anything. When the entry
+        // is already the log-fed llama one, the logread command is the
+        // ONLY thing that moves llama stats forward — an empty probe tick
+        // leaves card, ring and request table exactly as they are (no
+        // downgrade to "none", no blank half-second, no re-render).
+        if (prev && (prev.kind === "llama" || prev.log) && entry.kind === "none")
+            return
         // The metrics probe lands every tick, but the llama log tail it
-        // pairs with arrives ~200 ms later on its own command. A llama.cpp
-        // server without --metrics 404s that probe, so in the gap the entry
-        // would classify as "none"/"no_metrics" with an empty log: its grid
-        // and request rows would blank and refill every single second.
-        // Carry both facts (last tail + the llama classification) forward;
-        // the logread callback still refines everything when it lands.
-        var prev = statsMap[id]
+        // pairs with arrives ~200 ms later on its own command: carry last
+        // tail + classification through that gap (the rebuild below only
+        // happens when the probe really reports something new).
         if (prev && prev.log) {
             entry.log = prev.log
             if (isLlama && prev.kind === "llama") entry.kind = "llama"
         }
+        if (ep === "metrics" && entry.kind !== "llama" && entry.kind !== "strata"
+            && entry.err === "")
+            entry.err = "no_metrics"     // probe answered but not Prometheus
+        // Nothing changed since the last tick → keep the entry object as
+        // it is: no reassignment, no re-parse, no table/card churn. Only
+        // content counts; `at` alone is not news.
+        if (prev && prev.ep === entry.ep && prev.kind === entry.kind &&
+            prev.err === entry.err && prev.body === entry.body &&
+            prev.log === entry.log && prev.health === entry.health)
+            return
         var sm = Object.assign({}, statsMap)
         sm[id] = entry
         statsMap = sm
 
-        // llama.cpp exposes metrics only with --metrics. The log tail is read
-        // either way: without metrics it is the only source, with them it still
-        // supplies n_ctx/usage and per-request rows that the counters lack.
-        if (ep === "metrics" && isLlama) {
-            var r = runningMap[id]
-            if (r && r.logfile) {
-                ctl("logread " + Logic.shQuote(r.logfile) + " 200", function (code2, out2) {
-                    if (code2 !== 0) return
-                    var cur = statsMap[id]
-                    if (!cur || cur.at !== entry.at) return   // newer probe won
-                    cur.log = out2
-                    // No Prometheus but a readable log: the log tail is a valid
-                    // llama stats source; keep the no_metrics hint for the chip.
-                    if (cur.kind !== "llama") cur.kind = "llama"
-                    var sm2 = Object.assign({}, statsMap)
-                    sm2[id] = cur
-                    statsMap = sm2
-                    // the loaded model is a log fact: harvest markers from
-                    // the tail, and (once per run) from the whole log
-                    noteModelMarkers(id, out2)
-                    if (!statsModels[id] && !statsScanned[id]) scanModelMarkers(id)
-                    refreshReqStream()
-                })
-            }
-        } else if (ep === "metrics" && entry.kind !== "llama" && entry.kind !== "strata"
-                   && entry.err === "") {
-            entry.err = "no_metrics"      // llama probe answered but not Prometheus
-            var smx = Object.assign({}, statsMap)
-            smx[id] = entry
-            statsMap = smx
-        }
+        // (The llama tail pump was already issued at the top of applyProbe.)
+
         // A generic JSON /health server has no model of its own in the stats
         // parser; the version tally from its /health body labels the card.
         var tal = Object.assign({}, statsTally)
@@ -564,6 +576,34 @@ PlasmoidItem {
         else tal[id] = ""
         statsTally = tal
         refreshReqStream()
+    }
+
+    // The llama tail probe: an identical tail means nothing happened — the
+    // entry stays byte-for-byte intact and the UI never sees the tick.
+    // Only a changed tail rebuilds the entry, re-parses and refreshes the
+    // request stream (grid, table, ring — the stream is the source).
+    function tailLlamaLog(id) {
+        var r = runningMap[id]
+        if (!r || !r.logfile) return
+        ctl("logread " + Logic.shQuote(r.logfile) + " 200", function (code2, out2) {
+            if (code2 !== 0) return
+            var cur = statsMap[id]
+            if (!cur || cur.log === out2) return
+            cur = Object.assign({}, cur, { log: out2, at: Date.now() })
+            // No Prometheus but a readable log: the tail is a valid llama
+            // stats source; a stale no_metrics hint stays on the chip.
+            if (cur.kind !== "llama") cur.kind = "llama"
+            var sm2 = Object.assign({}, statsMap)
+            sm2[id] = cur
+            statsMap = sm2
+            // the loaded model is a log fact: harvest markers from the
+            // tail, and re-scan the whole log every 30 s (hot-swaps age
+            // out of the tail window; identical markers change nothing)
+            noteModelMarkers(id, out2)
+            if (!statsModels[id] || Date.now() - (statsScanAt[id] || 0) > 30000)
+                scanModelMarkers(id)
+            refreshReqStream()
+        })
     }
 
     // ── Timers ─────────────────────────────────────────────────────────────

@@ -424,10 +424,32 @@ presets() {
 # and CPU% come from /proc so the rings work without any NVIDIA driver.
 gpu() {
     if command -v nvidia-smi >/dev/null 2>&1; then
+        # Attribute each VRAM-holding pid to the server session that owns
+        # it: nvidia-smi reports the process that allocated the memory,
+        # often a descendant (strata's engine, a wrapper) of the setsid
+        # session recorded in <id>.pid. Walk each app pid up the parent
+        # chain until it hits a live pidfile (read_pid: pid + start time,
+        # recycled pids never match) and emit vramowner=<id>=<MiB>.
+        declare -A vram_pid_owner=()
+        local sp
+        for pf in "$LOG_ROOT"/*.pid; do
+            sp="$(read_pid "$pf")"
+            [[ -n "$sp" ]] && vram_pid_owner["$sp"]="${pf##*/}"
+        done
         nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits 2>/dev/null |
         while IFS=, read -r p m; do
             p="${p// /}"; m="${m// /}"
-            [[ "$p" =~ ^[0-9]+$ && "$m" =~ ^[0-9]+$ ]] && printf 'proc=%s:%s\n' "$p" "$m"
+            [[ "$p" =~ ^[0-9]+$ && "$m" =~ ^[0-9]+$ ]] || continue
+            printf 'proc=%s:%s\n' "$p" "$m"
+            local cur="$p" id="" _hop
+            for _hop in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+                id="${vram_pid_owner[$cur]:-}"
+                [[ -n "$id" ]] && { printf 'vramowner=%s=%s\n' "${id%.pid}" "$m"; break; }
+                [[ -r "/proc/$cur/stat" ]] || break
+                # PPID = 2nd field after the "(comm) " prefix (comm has spaces)
+                cur=$(awk -F') ' '{split($2, a, " "); print a[2]}' "/proc/$cur/stat" 2>/dev/null)
+                [[ "$cur" =~ ^[0-9]+$ && "$cur" -gt 1 ]] || break
+            done
         done
         gn=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
         [[ -n "$gn" ]] && echo "gpuname=$gn"
