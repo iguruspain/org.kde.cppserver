@@ -405,6 +405,220 @@ function healthTally(body) {
     return m + (v ? " (v" + v + ")" : "");
 }
 
+// ── audio.cpp ([TIMING ts=…] blocks + request lines, --log) ─────────
+// "null" is a real value in this log: transcription with no chunking
+// never emits a first-audio marker, and the feed prints it as such.
+function fmtFeedMs(ms) {
+    if (!(ms >= 0)) return "–";
+    return ms >= 10000 ? (ms / 1000).toFixed(1) + "s" : (ms / 1000).toFixed(2) + "s";
+}
+function fmtFeedTtfb(v) {
+    return v === null ? "null" : fmtFeedMs(v);
+}
+// cap for audioReqs (all families together); mirrors mergeReqs' cap
+const AUDIO_FEED_MAX = 8;
+// audio.cpp log tail -> the audio fields of a parseStats shape.
+// Recognized lines (families change every audio.cpp release, so keys are
+// matched structurally, never by family name):
+//   [TRACE ts=…] server.model.id/path/family/task/mode/backend/device
+//        -> the model the CURRENT request uses (lazy_load loads models
+//        on demand); also binds the request to a family namespace, since
+//        every <family>.session.* timing key carries it
+//   [SERVER_HTTP_DEBUG] http.headers method=POST/PUT path=/v1/audio/…
+//        -> request opened (audio.cpp serves one request at a time)
+//   [SERVER_HTTP_DEBUG] http.headers method=… path=<other>
+//        -> non-audio request (health, ui): marks the active family
+//   [TIMING ts=…] session.wall_ms <ms>           -> request closed
+//   [TIMING ts=…] <family>.session.generate_ms   -> one generated chunk
+//   [TIMING ts=…] <family>.session.first_audio_ms -> time to first audio
+//   [SERVER_ERROR] / engine error / exception    -> flags the request
+// Feed: one row per request per family (newest first, the open request
+// included live), collected in s.audioReqs; the card draws one header
+// per family over its entries. No token/context data exists for audio
+// (TTS/ASR have neither). Speed is deliberately NOT derivable: the
+// server computes the audio duration (minitts::server::audio_duration_ms)
+// but only puts it in API responses, never in stdout — any "x real-time"
+// figure would be a guess. Old-format logs (no ts= markers) parse to an
+// idle card: without stamps there is nothing to measure or attribute.
+function audioLogStats(log, s, nowSec) {
+    const text = String(log || "");
+    const fams = new Map();
+    const order = [];
+    const famOf = function (name) {
+        let f = fams.get(name);
+        if (!f) {
+            f = { name, model: "", task: "", backend: "", reqs: 0, feed: [] };
+            fams.set(name, f);
+            order.push(name);
+        }
+        return f;
+    };
+    let cur = null;      // the open http request (audio.cpp: one at a time)
+    let fam = null;      // family bound to cur
+    let fallback = null; // family of the most recent request/chunk block
+    // model/task/backend of the CURRENT request, buffered until the
+    // family is known: the TRACE block prints before the first timing
+    // key reveals the family prefix, and startup prints before any
+    // request exists at all
+    let pend = { model: "", task: "", backend: "" };
+    const applyMeta = function (g) {
+        if (!g) return;
+        const src = (cur && (cur.meta.model !== "" || cur.meta.task !== "" || cur.meta.backend !== "")) ? cur.meta : pend;
+        if (g.model === "" && src.model !== "") g.model = src.model;
+        if (g.task === "" && src.task !== "") g.task = src.task;
+        if (g.backend === "" && src.backend !== "") g.backend = src.backend;
+    };
+    const tsRe = /(?:TRACE|TIMING) ts=(\d{8}-\d{6})/;
+    const tsOf = function (m) {
+        if (!m) return -1;
+        const t = m[1]; // "YYYYMMDD-HHMMSS" (one dash, after the date)
+        if (t.length !== 15) return -1;
+        const d = new Date(Number(t.slice(0, 4)), Number(t.slice(4, 6)) - 1, Number(t.slice(6, 8)),
+                           Number(t.slice(9, 11)), Number(t.slice(11, 13)), Number(t.slice(13, 15)));
+        const ms = d.getTime();
+        return ms > 0 ? Math.floor(ms / 1000) : -1;
+    };
+    // family a timing key belongs to: the open request's binding for
+    // session-level keys (wall_ms prints un-namespaced), else the key prefix
+    const famOfKey = function (key) {
+        if (key.indexOf("session.") === 0) return fam || fallback;
+        const dot = key.indexOf(".");
+        return dot > 0 ? famOf(key.slice(0, dot)) : null;
+    };
+    // a row always gets an `at`: its own stamp, else the nearest stamped
+    // line, else an hour ago: unstampable rows sink below the real ones
+    // and a 1970 clock would read as garbage in the time column
+    const stamp = function (t, fb) {
+        if (t > 0) return t;
+        if (fb > 0) return fb;
+        return (nowSec > 0 ? nowSec : 0) - 3600;
+    };
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        let m = /^\[TRACE ts=(\d{8}-\d{6})\] server\.model\.(\w+) (\S.*)$/.exec(line);
+        if (m) {
+            const v = m[2];
+            if (v === "family") {
+                // the one structural gift: the family line names the exact
+                // namespace the request's timing keys will use
+                const f0 = famOf(m[3].trim());
+                if (cur) fam = f0;
+                fallback = f0;
+                continue;
+            }
+            const src = (cur && cur.meta) ? cur.meta : pend;
+            if (v === "id") src.model = m[3];
+            else if (v === "task") src.task = m[3];
+            else if (v === "backend") src.backend = m[3];
+            const g = fam || fallback;
+            if (g) applyMeta(g);
+            if (cur && cur.at < 0) cur.at = tsOf(m);
+            continue;
+        }
+        m = /^\[TIMING ts=(\d{8}-\d{6})\] (\S+) (\S+)$/.exec(line);
+        if (m) {
+            const ts = tsOf(m);
+            const key = m[2];
+            const val = parseFloat(m[3]);
+            if (key === "session.wall_ms") {
+                if (cur) {
+                    const g = fam || fallback || famOf("audio");
+                    if (g) {
+                        applyMeta(g);
+                        g.reqs++;
+                        g.feed.push({
+                            at: stamp(cur.at, ts), chunks: cur.chunks,
+                            durMs: Number.isFinite(val) ? val : -1,
+                            ttfbMs: cur.ttfbMs, err: cur.err
+                        });
+                    }
+                    cur = null;
+                    fam = null;
+                }
+            } else if (cur && key.indexOf(".session.generate_ms") !== -1) {
+                cur.chunks++;
+                if (cur.at < 0) cur.at = ts;
+            } else if (cur && key.indexOf(".session.first_audio_ms") !== -1
+                       && Number.isFinite(val)) {
+                cur.ttfbMs = val;
+            } else if (key.indexOf(".session.") !== -1
+                       || key.indexOf(".generator.") !== -1
+                       || key.indexOf(".weights.") !== -1) {
+                if (cur && cur.at < 0) cur.at = ts;
+            }
+            if (cur && ts > 0) cur.lastTs = ts;
+            if (ts > 0) {
+                fallback = famOfKey(key) || fallback;
+                if (cur) applyMeta(fam || fallback || famOf("audio"));
+            }
+            continue;
+        }
+        m = /^\[SERVER_HTTP_DEBUG\] http\.headers method=(\w+) path=(\S+)/.exec(line);
+        if (m) {
+            if (cur) continue;      // body_ready pairs the headers line
+            if ((m[1] === "POST" || m[1] === "PUT")
+                && m[2].indexOf("/v1/audio/") === 0) {
+                // inherit the last known model: not every request
+                // re-announces its TRACE block (model already loaded)
+                cur = { at: -1, lastTs: -1, chunks: 0, ttfbMs: null, err: false,
+                        meta: { model: pend.model, task: pend.task, backend: pend.backend } };
+                fam = null;
+            } else if (fallback) {
+                fam = fallback;     // health mid-request keeps the binding
+            }
+            continue;
+        }
+        if (line.indexOf("[SERVER_ERROR]") !== -1 || line.indexOf("engine error") !== -1
+            || line.indexOf("exception") !== -1) {
+            if (cur) cur.err = true;
+        }
+    }
+    // the still-open request is live: its wall grows, its chunks already
+    // stream — but only while its own stamps say so. An unstamped (old
+    // format) or long-dead POST (log replayed after a restart) must not
+    // fake "generating" on an idle server.
+    if (cur) {
+        const freshTs = cur.lastTs > 0 ? cur.lastTs : cur.at;
+        if (freshTs > 0 && nowSec > 0 && nowSec - freshTs <= 3600) {
+            const g = fam || fallback || famOf("audio");
+            applyMeta(g);
+            const at = stamp(cur.at, -1);
+            g.feed.push({
+                at, chunks: cur.chunks,
+                durMs: (at >= 0 && nowSec > 0) ? (nowSec - at) * 1000 : -1,
+                ttfbMs: cur.ttfbMs, err: cur.err, running: true
+            });
+            s.state = "generating";
+        }
+    }
+    // requests happened but none is live: the server is idle, not unknown
+    if (s.state === "" && order.length > 0) s.state = "idle";
+    // the card's model: the active family first, else the last one that
+    // finished a request, else any family that announced a model
+    let best = null;
+    if (cur && fam) best = fam;
+    else order.forEach(function (n) {
+        const f = fams.get(n);
+        if (f.model && (f.reqs > 0 || !best)) best = f;
+    });
+    if (best) {
+        s.model = best.model;
+        s.audioTask = best.task;
+        s.audioBackend = best.backend;
+    }
+    let total = 0;
+    order.forEach(function (n) { total += fams.get(n).reqs; });
+    if (total > 0) s.events = total;
+    // newest first across families, each row tagged with its family (the
+    // card re-groups rows under one header per model family)
+    const all = [];
+    order.forEach(function (n) { fams.get(n).feed.forEach(function (r) { all.push(Object.assign({ fam: n }, r)); }); });
+    all.sort(function (a, b) { return b.at - a.at; });
+    s.audioReqs = all.slice(0, AUDIO_FEED_MAX);
+}
+
 // Prometheus exposition text -> { name: [values] } (every sample of a metric
 // name, labels dropped). Comments and unparsable lines are ignored.
 function parsePrometheus(text) {
@@ -518,7 +732,7 @@ function stickify(s, stick) {
 
 // Normalize one polled server into what the Stats tab renders. Unknown
 // numbers are -1 so the UI can hide that chip/progress bar.
-// entry: { kind: "strata"|"llama"|"json"|"none", health: <health body>,
+// entry: { kind: "strata"|"llama"|"json"|"audio"|"none", health: <health body>,
 //          body: <metrics body>, log: <llama log tail>, err: "" }
 // extra: { stick: per-server last-good cache (see stickify),
 //          model: model name recovered from log markers elsewhere }
@@ -546,6 +760,12 @@ function parseStats(entry, seen, extra) {
         ramUsedMib: -1, ramTotalMib: -1,
         promptTok: -1, outTok: -1, reusedTok: -1, events: -1,
         reqs: [],
+        // audio.cpp owns its OWN request feed (audioReqs) drawn by the
+        // card: audio has no tokens/context, so it never joins the shared
+        // table. One entry per recent request, newest first, family name
+        // on each so the card can group by model. audio task/backend
+        // label the model line.
+        audioReqs: [], audioTask: "", audioBackend: "",
         // dashboard extras (strata): names, limits, sparkline series, live progress
         gpuName: "", cpuName: "", cores: 0, threads: 0,
         powerLimit: -1, pcie: "", diskRead: -1, prefillTps: -1,
@@ -679,6 +899,21 @@ function parseStats(entry, seen, extra) {
         }
         // idle llama windows report nothing: hold the last real values so
         // the card and the speed tile never flicker 0/– between ticks
+        if (x.stick) stickify(s, x.stick);
+    } else if (e.kind === "audio") {
+        // audio.cpp (audiocpp_server, with --log): the /health probe only
+        // tells us it answers — the real state lives in the log tail
+        // (request lines + [TIMING] blocks; see audioLogStats). No tokens,
+        // no context: the card gets state + model, and its OWN per-request
+        // feed (audioReqs) instead of the token grid; it never contributes
+        // to the shared table or the Speed tile.
+        if (e.log) {
+            const nowSec = (typeof x.now === "number" && x.now > 0)
+                ? x.now : Math.floor(Date.now() / 1000);
+            audioLogStats(e.log, s, nowSec);
+        }
+        if (!s.model && x.model) s.model = String(x.model);
+        s.active = s.state !== "" && s.state !== "idle";
         if (x.stick) stickify(s, x.stick);
     } else if (e.kind === "json") {
         s.state = "idle";

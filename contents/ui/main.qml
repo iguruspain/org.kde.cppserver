@@ -374,21 +374,17 @@ PlasmoidItem {
                 return
             }
             var cur = statsMap[id]
+            // log-fed servers: llama (with or without --metrics) and
+            // audio.cpp — both stream their state from their own log tail
+            var bin = Logic.serverBinary(s.command, homeDir).split("/").pop().toLowerCase()
+            var isLlama = bin === "llama-server" || bin === "llama-serve"
+            var isAudio = bin.indexOf("audiocpp") === 0
             var ep = "health"
-            var isLlama = false
             if ((cur && cur.ep === "metrics") || (cur && cur.kind === "strata")) ep = "metrics"
-            else if (!cur) {
-                var bin = Logic.serverBinary(s.command, homeDir).split("/").pop().toLowerCase()
-                if (bin === "llama-server" || bin === "llama-serve") ep = "metrics"
-            }
-            if (ep === "metrics" && cur && cur.kind && cur.kind !== "strata") isLlama = true
-            else if (ep === "metrics" && !cur) {
-                var bin2 = Logic.serverBinary(s.command, homeDir).split("/").pop().toLowerCase()
-                isLlama = bin2 === "llama-server" || bin2 === "llama-serve"
-            }
+            else if (!cur && isLlama) ep = "metrics"
             var target = url + ep
             run(Logic.scriptCmd() + " probe " + Logic.shQuote(target), function (code, out) {
-                applyProbe(id, ep, code, out, isLlama)
+                applyProbe(id, ep, code, out, isLlama, isAudio)
             })
         })
         // one machine snapshot per tick: nvidia-smi (per-pid VRAM, GPU totals,
@@ -432,7 +428,9 @@ PlasmoidItem {
             var e = statsMap[s.id]
             if (!e) return
             var st = Logic.parseStats(e, reqSeenOf(s.id), statsExtraOf(s.id))
-            entries.push({ name: s.name || s.id, reqs: st.reqs })
+            // audio draws its OWN feed on the card: it has no token/
+            // context columns to fill, so it never joins the shared table
+            entries.push({ name: s.name || s.id, reqs: st.kind === "audio" ? [] : st.reqs })
             // live speed feed for the Speed tile: t/s is only a CURRENT
             // figure while the server is actually generating — an idle
             // llama server holds its last tg in the sticky cache forever,
@@ -529,18 +527,21 @@ PlasmoidItem {
         refreshReqStream()
     }
 
-    function applyProbe(id, ep, code, out, isLlama) {
+    function applyProbe(id, ep, code, out, isLlama, isAudio) {
         var body = String(out || "")
         var prev = statsMap[id]
         var entry = { ep: ep, kind: "none", err: "", health: "", body: "", log: "", at: Date.now() }
 
-        // A llama.cpp server streams its real state from the log, so the
-        // tail read is issued on EVERY probe tick no matter how this tick
-        // classifies: the transparent/dedup paths below must never be able
-        // to stop the only pump llama has. An empty or failed read during
-        // bootstrap (fresh router log, callback race) is retried next tick;
-        // without that retry a stuck empty entry would stay dead forever.
-        if (ep === "metrics" && isLlama) tailLlamaLog(id)
+        // A log-fed server (llama.cpp, audio.cpp) streams its real state
+        // from its own log, so the tail read is issued on EVERY probe tick
+        // no matter how this tick classifies: the transparent/dedup paths
+        // below must never be able to stop its only pump. An empty or
+        // failed read during bootstrap (fresh router log, callback race)
+        // is retried next tick; without that retry a stuck empty entry
+        // would stay dead forever. (For llama this pairs with the
+        // /metrics probe; audio has no metrics endpoint at all — the
+        // /health probe just proves it answers, the log carries data.)
+        if (isLlama || isAudio) tailStatsLog(id, isAudio ? "audio" : "llama")
         if (code !== 0) {
             entry.err = body.indexOf("error=") === 0 ? body.slice(6) : "unreachable"
         } else if (body.charAt(0) === "{") {
@@ -549,30 +550,34 @@ PlasmoidItem {
             // not carry that key: its engine+history sections label it
             entry.kind = (j && (j.service === "strata" || (j.engine && j.history)))
                          ? "strata" : "json"
+            if (isAudio) entry.kind = "audio"  // /health JSON, real state in the log
             if (ep === "health") entry.health = body
             else entry.body = body
         } else if (body.indexOf("llm:") !== -1 || body.indexOf("llamacpp:") !== -1 || body.charAt(0) === "#") {
             entry.kind = "llama"
             entry.body = body
+        } else if (isAudio) {
+            entry.kind = "audio"              // health answered without JSON
         } else {
             entry.err = "no_metrics"      // HTML error page, plain-text 404…
         }
 
-        // A llama.cpp server without --metrics 404s /metrics: the probe
-        // carries no data, so it must not touch anything. When the entry
-        // is already the log-fed llama one, the logread command is the
-        // ONLY thing that moves llama stats forward — an empty probe tick
+        // A log-fed server's probe can carry no new data (llama 404s
+        // /metrics without --metrics; audio's /health body never changes):
+        // the probe must not touch anything. The logread command is the
+        // ONLY thing that moves their stats forward — an empty probe tick
         // leaves card, ring and request table exactly as they are (no
         // downgrade to "none", no blank half-second, no re-render).
-        if (prev && (prev.kind === "llama" || prev.log) && entry.kind === "none")
+        if (prev && (prev.kind === "llama" || prev.kind === "audio" || prev.log) && entry.kind === "none")
             return
-        // The metrics probe lands every tick, but the llama log tail it
-        // pairs with arrives ~200 ms later on its own command: carry last
-        // tail + classification through that gap (the rebuild below only
-        // happens when the probe really reports something new).
+        // The probe lands every tick, but the log tail it pairs with
+        // arrives ~200 ms later on its own command: carry last tail +
+        // classification through that gap (the rebuild below only happens
+        // when the probe really reports something new).
         if (prev && prev.log) {
             entry.log = prev.log
-            if (isLlama && prev.kind === "llama") entry.kind = "llama"
+            if ((isLlama && prev.kind === "llama") || (isAudio && prev.kind === "audio"))
+                entry.kind = prev.kind
         }
         if (ep === "metrics" && entry.kind !== "llama" && entry.kind !== "strata"
             && entry.err === "")
@@ -599,15 +604,16 @@ PlasmoidItem {
         refreshReqStream()
     }
 
-    // The llama tail probe: an identical tail means nothing happened — the
-    // entry stays byte-for-byte intact and the UI never sees the tick.
-    // Only a changed tail rebuilds the entry, re-parses and refreshes the
-    // request stream (grid, table, ring — the stream is the source).
-    function tailLlamaLog(id) {
+    // The log tail probe for the log-fed servers (llama.cpp / audio.cpp):
+    // an identical tail means nothing happened — the entry stays
+    // byte-for-byte intact and the UI never sees the tick. Only a changed
+    // tail rebuilds the entry, re-parses and refreshes the request stream
+    // (grid, table, ring, the audio card's own feed — sources aside).
+    function tailStatsLog(id, kind) {
         var r = runningMap[id]
         if (!r || !r.logfile) return
-        // 400 lines: one prefill burst (checkpoint/cache chatter) plus the
-        // 3 s print_timing lines can blow through a small window between
+        // 400 lines: one prefill burst (checkpoint/cache chatter) or a
+        // burst of health chatter can blow through a small window between
         // two ticks, and losing the "processing task" line mid-request
         // would drop that request's live row for a beat
         ctl("logread " + Logic.shQuote(r.logfile) + " 400", function (code2, out2) {
@@ -615,18 +621,26 @@ PlasmoidItem {
             var cur = statsMap[id]
             if (!cur || cur.log === out2) return
             cur = Object.assign({}, cur, { log: out2, at: Date.now() })
-            // No Prometheus but a readable log: the tail is a valid llama
-            // stats source; a stale no_metrics hint stays on the chip.
-            if (cur.kind !== "llama") cur.kind = "llama"
+            // no metrics endpoint but a readable log: the tail is a valid
+            // stats source; a stale no_metrics hint stays on the chip
+            if (cur.kind !== "llama" && cur.kind !== "audio") cur.kind = kind
             var sm2 = Object.assign({}, statsMap)
             sm2[id] = cur
             statsMap = sm2
-            // the loaded model is a log fact: harvest markers from the
-            // tail, and re-scan the whole log every 30 s (hot-swaps age
-            // out of the tail window; identical markers change nothing)
-            noteModelMarkers(id, out2)
-            if (!statsModels[id] || Date.now() - (statsScanAt[id] || 0) > 30000)
-                scanModelMarkers(id)
+            if (kind === "audio") {
+                // the audio model is per request (lazy_load): keep it warm
+                // in the cross-restart cache so an idle window whose lines
+                // aged out of the tail still labels the card
+                var st = Logic.parseStats(cur, {}, {})
+                if (st.model && statsModels[id] !== st.model) statsModels[id] = st.model
+            } else {
+                // the loaded model is a log fact: harvest markers from the
+                // tail, and re-scan the whole log every 30 s (hot-swaps age
+                // out of the tail window; identical markers change nothing)
+                noteModelMarkers(id, out2)
+                if (!statsModels[id] || Date.now() - (statsScanAt[id] || 0) > 30000)
+                    scanModelMarkers(id)
+            }
             refreshReqStream()
         })
     }

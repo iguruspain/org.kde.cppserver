@@ -15,7 +15,8 @@ const API = [
     "buildCommand", "subToken", "parseKv", "parseStatusall",
     "healthTally", "parseGpu", "gpuReadout", "pushHist", "stickify",
     "parseStats", "fmtReqRow", "mergeReqs", "llamaLogStats",
-    "fmtTokens", "fmtTokensFull", "fmtMibPair", "fmtDur", "fmtAge"
+    "fmtTokens", "fmtTokensFull", "fmtMibPair", "fmtDur", "fmtAge",
+    "fmtFeedMs", "fmtFeedTtfb", "AUDIO_FEED_MAX"
 ];
 
 export function loadLogic() {
@@ -27,7 +28,7 @@ export function loadLogic() {
     const fn = new Function(src + "\nreturn {" + API.join(",") + "};");
     const L = fn();
     for (const k of API)
-        if (typeof L[k] !== "function")
+        if (L[k] === undefined)
             throw new Error("logic.js no longer exports " + k);
     return L;
 }

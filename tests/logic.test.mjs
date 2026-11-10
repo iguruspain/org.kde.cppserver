@@ -9,7 +9,7 @@
 // tg (card == table), accepted-tokens-only counts, the sticky cache never
 // resurrecting active/state, tok_s sparkline samples surviving zeros,
 // parseStatusall's entry shape, and request-stream ordering.
-import test from "node:test";
+import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import { loadLogic } from "./load-logic.mjs";
 
@@ -280,4 +280,187 @@ test("normalizeServers: ids slugified-unique, port clamped, enabled defaults tru
     assert.equal(out[2].port, 0);
     assert.equal(out[0].enabled, true);
     assert.equal(out[2].enabled, false);
+});
+
+// ── audio.cpp log tail → parseStats audio shape (real captured lines) ──
+describe("audioLogStats (parseStats kind:audio)", () => {
+    // verbatim lines from a live audio-cpp run with --log (the TRACE
+    // server.model.* block, the CUDA block, the request lifecycle and
+    // two complete chunk cycles; omnivoice family)
+    const A = [
+        "[TRACE ts=20261110-092059] server.model.id omnivoice",
+        "[TRACE ts=20261110-092059] server.model.family omnivoice",
+        "[TRACE ts=20261110-092059] server.model.task tts",
+        "[TRACE ts=20261110-092059] server.model.backend cuda",
+        "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=1338 transfer_encoding=<none> incremental=false prefetched_body_bytes=1338",
+        "[SERVER_HTTP_DEBUG] http.body_ready path=/v1/audio/speech body_bytes=1338",
+        "[TIMING ts=20261110-092102] omnivoice.session.generate_ms 1641.754412",
+        "[TIMING ts=20261110-092102] omnivoice.generator.compute_ms 1491.8351340000004",
+        "[TIMING ts=20261110-092102] omnivoice.session.decode_ms 70.121722",
+        "[TIMING ts=20261110-092102] omnivoice.session.first_audio_ms 1716.901662",
+        "[TIMING ts=20261110-092104] omnivoice.session.generate_ms 1808.531676",
+        "[TIMING ts=20261110-092104] omnivoice.session.decode_ms 79.617604",
+        "[TIMING ts=20261110-092112] session.wall_ms 11799.27377",
+        "[SERVER_HTTP_DEBUG] http.headers method=GET path=/health content_length=<none> transfer_encoding=<none> incremental=false prefetched_body_bytes=0",
+        "[SERVER_HTTP_DEBUG] http.body_ready path=/health body_bytes=0"
+    ].join("\n");
+    // verbatim from a live audio-cpp transcription: ASR never emits a
+    // first-audio marker — the feed prints that cell as the literal "null"
+    const ASR = [
+        "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/transcriptions content_length=309559 transfer_encoding=<none> incremental=false prefetched_body_bytes=131072",
+        "[TRACE ts=20261110-124506] server.model.id parakeet-tdt",
+        "[TRACE ts=20261110-124506] server.model.task asr",
+        "[TIMING ts=20261110-124506] parakeet_tdt.transcribe.window_count 26",
+        "[TIMING ts=20261110-124507] parakeet_tdt.session.generate_ms 253.032492",
+        "[TIMING ts=20261110-124507] parakeet_tdt.encoders.encode_ms 45.318809",
+        "[TIMING ts=20261110-124518] parakeet_tdt.session.generate_ms 68.967095",
+        "[TIMING ts=20261110-124518] session.wall_ms 11924.959091",
+        "[SERVER_HTTP_DEBUG] http.headers method=GET path=/health content_length=<none> transfer_encoding=<none> incremental=false prefetched_body_bytes=0"
+    ].join("\n");
+    // fixed clock: the live request must read fresh regardless of when
+    // the suite runs (the freshness window is what stops old replayed
+    // logs from faking "generating")
+    const NOW = function (h, m, s) { return new Date(2026, 10, 10, h, m, s).getTime() / 1000; };
+    const st = () => L.parseStats({ kind: "audio", log: A, err: "" }, {}, {});
+    test("model/task/backend from the TRACE block", () => {
+        const s = st();
+        assert.equal(s.model, "omnivoice");
+        assert.equal(s.audioTask, "tts");
+        assert.equal(s.audioBackend, "cuda");
+    });
+    test("closed request -> feed row; health noise does not open one", () => {
+        const s = st();
+        assert.equal(s.state, "idle");
+        assert.equal(s.active, false);
+        assert.equal(s.events, 1);
+        assert.equal(s.audioReqs.length, 1);
+        const r = s.audioReqs[0];
+        assert.equal(r.fam, "omnivoice");
+        assert.equal(r.chunks, 2);
+        assert.equal(Math.round(r.durMs), 11799);
+        assert.equal(Math.round(r.ttfbMs), 1717);
+        assert.equal(r.err, false);
+        assert.equal(r.running, undefined);
+        // request start stamped from its own generated chunks (ts lines)
+        const d = new Date(r.at * 1000);
+        assert.equal(`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, "2026-11-10");
+    });
+    test("open request is live: generating, running feed row, no tokens", () => {
+        const open = A.replace("[TIMING ts=20261110-092112] session.wall_ms 11799.27377", "") +
+                     "\n[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=200";
+        const s = L.parseStats({ kind: "audio", log: open, err: "" }, {}, { now: NOW(9, 21, 15) });
+        assert.equal(s.state, "generating");
+        assert.equal(s.active, true);
+        assert.equal(s.tps, -1); // audio never contributes tokens
+        assert.equal(s.ctxMax, 0);
+        assert.equal(s.reqs.length, 0); // audio NEVER joins the shared table
+        const live = s.audioReqs[0]; // newest row is the live one
+        assert.ok(live.running);
+        assert.ok(live.durMs >= 0);
+    });
+    test("ASR request: no first-audio marker prints as literal null", () => {
+        const s = L.parseStats({ kind: "audio", log: ASR, err: "" }, {}, {});
+        assert.equal(s.model, "parakeet-tdt");
+        assert.equal(s.audioTask, "asr");
+        assert.equal(s.audioReqs.length, 1);
+        assert.equal(s.audioReqs[0].fam, "parakeet_tdt");
+        assert.equal(s.audioReqs[0].ttfbMs, null);
+        assert.equal(L.fmtFeedTtfb(s.audioReqs[0].ttfbMs), "null");
+        assert.equal(s.audioReqs[0].chunks, 2);
+    });
+    test("multi-family tail: per-family blocks newest-first, family-tagged", () => {
+        const both = [
+            "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=100",
+            "[TRACE ts=20261110-100000] server.model.id omnivoice",
+            "[TRACE ts=20261110-100000] server.model.family omnivoice",
+            "[TIMING ts=20261110-100002] omnivoice.session.generate_ms 1500",
+            "[TIMING ts=20261110-100010] session.wall_ms 10000.5",
+            "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/transcriptions content_length=300000",
+            "[TRACE ts=20261110-101000] server.model.id parakeet-tdt",
+            "[TRACE ts=20261110-101000] server.model.family parakeet_tdt",
+            "[TIMING ts=20261110-101005] parakeet_tdt.session.generate_ms 300",
+            "[TIMING ts=20261110-101006] session.wall_ms 6000",
+            // third omnivoice request, newer than the parakeet one, and it
+            // only prints the un-namespaced wall_ms close: the family TRACE
+            // line is what keeps it in its own block
+            "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=100",
+            "[TRACE ts=20261110-102000] server.model.id omnivoice",
+            "[TRACE ts=20261110-102000] server.model.family omnivoice",
+            "[TIMING ts=20261110-102003] session.wall_ms 3000"
+        ].join("\n");
+        const s = L.parseStats({ kind: "audio", log: both, err: "" }, {}, {});
+        assert.equal(s.audioReqs.length, 3);
+        assert.equal(s.audioReqs[0].fam, "omnivoice");
+        assert.equal(s.audioReqs[1].fam, "parakeet_tdt");
+        assert.equal(s.audioReqs[2].fam, "omnivoice");
+        assert.ok(s.audioReqs[0].at > s.audioReqs[1].at); // newest first
+        assert.equal(s.events, 3);
+    });
+    test("stale open POST (log replayed after restart) does not fake generating", () => {
+        // A ends idle; append an un-closed POST whose stamps are from the
+        // morning, probe "at night": the freshness window must gate it
+        const replay = A + "\n[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=100";
+        const s = L.parseStats({ kind: "audio", log: replay, err: "" }, {}, { now: NOW(23, 0, 0) });
+        assert.equal(s.state, "idle");
+        assert.equal(s.active, false);
+        assert.equal(s.audioReqs.filter(r => r.running).length, 0);
+    });
+    test("health request mid-request keeps the family binding, no false row", () => {
+        const mid = [
+            "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=100",
+            "[TRACE ts=20261110-110000] server.model.id omnivoice",
+            "[SERVER_HTTP_DEBUG] http.headers method=GET path=/health content_length=<none>",
+            "[SERVER_HTTP_DEBUG] http.body_ready path=/health body_bytes=0",
+            "[TIMING ts=20261110-110002] omnivoice.session.generate_ms 1500"
+        ].join("\n");
+        const s = L.parseStats({ kind: "audio", log: mid, err: "" }, {}, { now: NOW(11, 0, 10) });
+        assert.equal(s.audioReqs.length, 1); // only the live audio request
+        assert.equal(s.audioReqs[0].fam, "omnivoice");
+        assert.equal(s.audioReqs[0].running, true);
+        assert.equal(s.state, "generating");
+    });
+    test("error lines flag the open request; feed caps at AUDIO_FEED_MAX", () => {
+        let errlog = "";
+        for (let i = 0; i < 9; i++)
+            errlog += `[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech\n[TIMING ts=20261110-0800${String(i).padStart(2, "0")}] session.wall_ms 1000\n`;
+        // then one request that died with an error and never closed: it
+        // stays open (live) and must be flagged
+        errlog += "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech\n" +
+                  "[TRACE ts=20261110-100459] server.model.id omnivoice\n" +
+                  "[SERVER_ERROR] engine error while synthesizing\n";
+        const s = L.parseStats({ kind: "audio", log: errlog, err: "" }, {}, { now: NOW(10, 5, 0) });
+        assert.equal(s.audioReqs.length, L.AUDIO_FEED_MAX);
+        const flagged = s.audioReqs.filter(r => r.err);
+        assert.ok(flagged.length >= 1);
+    });
+    test("feed formatters", () => {
+        assert.equal(L.fmtFeedMs(-1), "–");
+        assert.equal(L.fmtFeedMs(1641.75), "1.64s");
+        assert.equal(L.fmtFeedMs(11799.27), "11.8s");
+        assert.equal(L.fmtFeedMs(500), "0.50s");
+        assert.equal(L.fmtFeedTtfb(null), "null");
+        assert.equal(L.fmtFeedTtfb(1716.9), "1.72s");
+    });
+    test("idle window keeps values via the sticky cache", () => {
+        const stick = {};
+        const s1 = L.parseStats({ kind: "audio", log: A, err: "" }, {}, { stick });
+        const s2 = L.parseStats({ kind: "audio", log: "audiocpp_server listening on http://127.0.0.1:18081", err: "" }, {}, { stick });
+        assert.equal(s2.events, 1);
+        assert.equal(s2.model, "");
+        assert.equal(s2.state, "");
+    });
+    test("model carried across restarts by the extra.model hook", () => {
+        const s = L.parseStats({ kind: "audio", log: "audiocpp_server listening on http://127.0.0.1:18081", err: "" }, {}, { model: "omnivoice" });
+        assert.equal(s.model, "omnivoice");
+    });
+    test("old-format log (no ts=): idle card, no rows, no state", () => {
+        const old = [
+            "[TIMING] session.generate_ms 1641.754412",
+            "[SERVER_HTTP_DEBUG] http.headers method=POST path=/v1/audio/speech content_length=1338"
+        ].join("\n");
+        const s = L.parseStats({ kind: "audio", log: old, err: "" }, {}, {});
+        assert.equal(s.audioReqs.length, 0);
+        assert.equal(s.state, "");
+        assert.equal(s.model, "");
+    });
 });
