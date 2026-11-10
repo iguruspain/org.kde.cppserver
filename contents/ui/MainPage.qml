@@ -569,7 +569,7 @@ ColumnLayout {
                                                  && statsTab.hw !== null && statsTab.hw.cpuPct >= 0
                 readonly property bool gpuShown: page.backend.statShowHardware
                                                  && statsTab.hw !== null && statsTab.hw.gpuUtil >= 0
-                readonly property bool vramShown: page.backend.statShowVram
+                readonly property bool vramShown: page.backend.statShowHardware
                                                   && statsTab.hw !== null
                                                   && statsTab.hw.vramTotalMib > 0 && statsTab.hw.vramUsedMib >= 0
                 readonly property bool ramShown: page.backend.statShowHardware
@@ -677,13 +677,23 @@ ColumnLayout {
                 property var tilesById: ({})
                 property var tileIds: []
                 property var tileStale: ({})
-                // Tiles depend on the Stats config toggles too.
-                readonly property var tileGate: [page.backend.statShowTps,
+                // Tiles depend on the Stats config toggles too: the extra-
+                // info master plus every tile's own switch. Clear the stale
+                // hysteresis on a toggle change so tiles appear/disappear
+                // immediately (the 3-tick grace exists for probes that
+                // briefly drop an optional counter, not for config edits).
+                readonly property var tileGate: [page.backend.statShowExtra,
+                                                page.backend.statShowTps,
                                                 page.backend.statShowHardware,
-                                                page.backend.statShowVram]
+                                                page.backend.statShowGpuTemp,
+                                                page.backend.statShowGpuPower,
+                                                page.backend.statShowDisk]
 
                 onRowsChanged: statsTab.restructure()
-                onTileGateChanged: statsTab.restructure()
+                onTileGateChanged: {
+                    statsTab.tileStale = ({})
+                    statsTab.restructure()
+                }
                 Component.onCompleted: statsTab.restructure()
 
                 function restructure() {
@@ -771,7 +781,7 @@ ColumnLayout {
                     const out = []
                     const cfg = page.backend
                     const hw = statsTab.hw
-                    if (cfg.statShowTps && statsTab.rows.length > 0) {
+                    if (cfg.statShowExtra && cfg.statShowTps && statsTab.rows.length > 0) {
                         let cur = -1, mean = -1
                         let tokSpark = []
                         statsTab.rows.forEach(function (r) {
@@ -799,18 +809,20 @@ ColumnLayout {
                                        tint: Kirigami.Theme.positiveTextColor })
                         }
                     }
-                    if (cfg.statShowHardware && hw) {
-                        if (hw.gpuTemp >= 0)
+                    // every tile is its own Stats switch (temp / power /
+                    // disk), all inside the extra-info block
+                    if (cfg.statShowExtra && hw) {
+                        if (cfg.statShowGpuTemp && hw.gpuTemp >= 0)
                             out.push({ label: i18n("GPU temp"), value: String(Math.round(hw.gpuTemp)),
                                        unit: " °C",
-                                       sub: hw.gpuPower >= 0 ? Math.round(hw.gpuPower) + " W" : "",
+                                       sub: cfg.statShowGpuPower && hw.gpuPower >= 0 ? Math.round(hw.gpuPower) + " W" : "",
                                        spark: hw.hist.gpu_temp || [], tint: Kirigami.Theme.neutralTextColor })
-                        if (hw.gpuPower >= 0)
+                        if (cfg.statShowGpuPower && hw.gpuPower >= 0)
                             out.push({ label: i18n("GPU power"), value: String(Math.round(hw.gpuPower)),
                                        unit: " W",
                                        sub: hw.powerLimit > 0 ? i18n("limit %1 W", Math.round(hw.powerLimit)) : "",
                                        spark: hw.hist.gpu_power || [], tint: Kirigami.Theme.neutralTextColor })
-                        if (hw.diskRead >= 0)
+                        if (cfg.statShowDisk && hw.diskRead >= 0)
                             out.push({ label: i18n("Disk"), value: hw.diskRead.toFixed(0), unit: " MB/s",
                                        sub: "", spark: hw.hist.disk_read_mb || [],
                                        tint: Kirigami.Theme.neutralTextColor })
@@ -841,7 +853,13 @@ ColumnLayout {
                     PlasmaComponents.Label {
                         font: Kirigami.Theme.smallFont
                         opacity: 0.6
-                        text: i18n("HTTP probes every second while this tab is open")
+                        // the Stats config's sampling frequency (statSampleMs):
+                        // whole seconds read as seconds, the rest in ms
+                        text: page.backend.statSampleMs % 1000 === 0
+                              ? i18n("HTTP probes every %1 s while this tab is open",
+                                     String(page.backend.statSampleMs / 1000))
+                              : i18n("HTTP probes every %1 ms while this tab is open",
+                                     String(page.backend.statSampleMs))
                     }
                     Item { Layout.fillWidth: true }
                     PlasmaComponents.ToolButton {
@@ -876,13 +894,21 @@ ColumnLayout {
                         // readouts wrap inside their cell. Each server's
                         // context ring lives inside its card.
                         GridLayout {
+                            id: machineGrid
                             Layout.fillWidth: true
                             columns: Math.max(1, Math.min(4, Math.floor(
                                 (statsTab.width - 24) /
                                 (Kirigami.Units.gridUnit * 3.4 + Kirigami.Units.largeSpacing))))
                             columnSpacing: Kirigami.Units.largeSpacing
                             rowSpacing: Kirigami.Units.smallSpacing
-                            visible: statsTab.hw !== null
+                            // the whole machine block (rings + legend +
+                            // sparkline bands) follows the hardware master
+                            visible: statsTab.hw !== null && page.backend.statShowHardware
+                            // the Stats config's "VRAM legend" switch gates
+                            // the WHOLE legend row (every cell of it): the
+                            // row collapses as one unit and the sparkline
+                            // band keeps its baseline
+                            readonly property bool legendRowShown: page.backend.statShowVramLegend
 
                             // band 1: rings + readouts
                             GaugeRing {
@@ -941,12 +967,15 @@ ColumnLayout {
                             // entries share a line while they fit, and wrap
                             // to the next line the moment a pair would
                             // exceed the column — never wider than 1/4.
-                            // model 0 empties it without shifting anything
-                            Item { Layout.fillWidth: true }
-                            Item { Layout.fillWidth: true }
+                            // the legend row hides as a whole (every cell
+                            // of it): the row collapses as one unit and
+                            // the sparkline band never shifts off its row
+                            Item { Layout.fillWidth: true; visible: machineGrid.legendRowShown }
+                            Item { Layout.fillWidth: true; visible: machineGrid.legendRowShown }
                             Item {
                                 id: legendCell
                                 Layout.fillWidth: true
+                                visible: machineGrid.legendRowShown
                                 implicitHeight: vramFlow.implicitHeight
                                 // plain QtQuick Flow. Flow only knows a
                                 // single uniform `spacing`:
@@ -986,31 +1015,35 @@ ColumnLayout {
                                 }
                                 }
                             }
-                            Item { Layout.fillWidth: true }
+                            Item { Layout.fillWidth: true; visible: machineGrid.legendRowShown }
 
                             // band 3: rolling histories (strata's own
                             // series, or the plasmoid's tok/hw samples)
                             Sparkline {
                                 Layout.fillWidth: true
                                 visible: statsTab.cpuShown
+                                         && page.backend.statShowSparklines
                                          && (statsTab.hw.hist.cpu || []).length > 1
                                 series: statsTab.hw ? (statsTab.hw.hist.cpu || []) : []
                             }
                             Sparkline {
                                 Layout.fillWidth: true
                                 visible: statsTab.gpuShown
+                                         && page.backend.statShowSparklines
                                          && (statsTab.hw.hist.gpu_util || []).length > 1
                                 series: statsTab.hw ? (statsTab.hw.hist.gpu_util || []) : []
                             }
                             Sparkline {
                                 Layout.fillWidth: true
                                 visible: statsTab.vramShown
+                                         && page.backend.statShowSparklines
                                          && (statsTab.hw.hist.gpu_mem_used || []).length > 1
                                 series: statsTab.hw ? (statsTab.hw.hist.gpu_mem_used || []) : []
                             }
                             Sparkline {
                                 Layout.fillWidth: true
                                 visible: statsTab.ramShown
+                                         && page.backend.statShowSparklines
                                          && (statsTab.hw.hist.ram_used || []).length > 1
                                 series: statsTab.hw ? (statsTab.hw.hist.ram_used || []) : []
                             }

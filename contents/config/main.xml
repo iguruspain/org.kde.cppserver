@@ -28,20 +28,38 @@
         <entry name="logShowTps" type="Bool">
             <default>true</default>
         </entry>
-        <!-- Stats tab (live monitor) switches -->
-        <entry name="statShowEvents" type="Bool">
+        <!-- Stats tab (live monitor): sampling cadence + block switches -->
+        <entry name="statSampleMs" type="Int">
+            <default>1000</default>
+        </entry>
+        <entry name="statShowHardware" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowVramLegend" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowSparklines" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowExtra" type="Bool">
             <default>true</default>
         </entry>
         <entry name="statShowTps" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="statShowGpuTemp" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowGpuPower" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="statShowDisk" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="statShowTokens" type="Bool">
             <default>true</default>
         </entry>
-        <entry name="statShowVram" type="Bool">
-            <default>true</default>
-        </entry>
-        <entry name="statShowHardware" type="Bool">
+        <entry name="statShowEvents" type="Bool">
             <default>true</default>
         </entry>
     </group>

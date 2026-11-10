@@ -109,12 +109,27 @@ PlasmoidItem {
     readonly property bool showStatOom: Plasmoid.configuration.logShowOom !== false
     readonly property bool showStatTps: Plasmoid.configuration.logShowTps !== false
 
-    // Stats-tab monitor switches (config/ConfigStats.qml).
-    readonly property bool statShowEvents: Plasmoid.configuration.statShowEvents !== false
-    readonly property bool statShowTps: Plasmoid.configuration.statShowTps !== false
-    readonly property bool statShowTokens: Plasmoid.configuration.statShowTokens !== false
-    readonly property bool statShowVram: Plasmoid.configuration.statShowVram !== false
+    // Stats-tab monitor switches (config/ConfigStats.qml): the probe cadence
+    // plus the block switches (machine rings / extra-info tiles / card
+    // totals and tables). VRAM is part of the machine block now — there is
+    // no separate VRAM toggle anymore.
+    // The kcfg SpinBox already offers 250..10000 ms; the clamp is the net
+    // for hand-edited config files (NaN/0/negative → the 1000 ms default).
+    readonly property int statSampleMs: {
+        var v = Math.round(Number(Plasmoid.configuration.statSampleMs))
+        if (!(v > 0)) return 1000
+        return Math.max(250, Math.min(10000, v))
+    }
     readonly property bool statShowHardware: Plasmoid.configuration.statShowHardware !== false
+    readonly property bool statShowVramLegend: Plasmoid.configuration.statShowVramLegend !== false
+    readonly property bool statShowSparklines: Plasmoid.configuration.statShowSparklines !== false
+    readonly property bool statShowExtra: Plasmoid.configuration.statShowExtra !== false
+    readonly property bool statShowTps: Plasmoid.configuration.statShowTps !== false
+    readonly property bool statShowGpuTemp: Plasmoid.configuration.statShowGpuTemp !== false
+    readonly property bool statShowGpuPower: Plasmoid.configuration.statShowGpuPower !== false
+    readonly property bool statShowDisk: Plasmoid.configuration.statShowDisk !== false
+    readonly property bool statShowTokens: Plasmoid.configuration.statShowTokens !== false
+    readonly property bool statShowEvents: Plasmoid.configuration.statShowEvents !== false
 
     // Servers shown in the widget: enabled ones, plus any disabled one that is
     // still running (so it can always be stopped), plus external strata
@@ -726,7 +741,9 @@ PlasmoidItem {
         onTriggered: root.tailLog()
     }
     Timer {
-        interval: 1000
+        // the Stats config's sampling frequency (statSampleMs, default 1 s):
+        // one HTTP probe per running server + one machine snapshot per tick
+        interval: root.statSampleMs
         running: root.expanded && root.activeTab === 2
         repeat: true
         onTriggered: root.pollStats()
