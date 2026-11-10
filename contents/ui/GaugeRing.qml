@@ -123,7 +123,9 @@ Item {
         anchors.topMargin: 3
         anchors.horizontalCenter: parent.horizontalCenter
         visible: Array.isArray(gauge.spark) && gauge.spark.length > 1
-        width: gauge.ringSize
+        // stretch with the readout line above (same cell-width rule): a
+        // fixed ringSize strip read as clipped under the wider text
+        width: Math.max(ring.width, gauge.width)
         // implicitHeight alone does nothing inside a plain Item: the strip
         // would be 0 px tall and never paint
         height: 18
