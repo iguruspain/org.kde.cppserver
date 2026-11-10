@@ -8,6 +8,16 @@ import org.kde.plasma.extras as PlasmaExtras
 
 import "logic.js" as Logic
 
+// Bound component behavior: delegates resolve outer ids at creation, never
+// capture the current scope implicitly.
+pragma ComponentBehavior: Bound
+// The two categories qmllint can never see here: the runtime-injected i18n()
+// global and the kcfg-backed properties behind Plasmoid.configuration.
+// Everything else stays checked (delegate captures, attached properties and
+// block-scoped vars below are fixed, not silenced).
+// qmllint disable unqualified
+// qmllint disable missing-property
+
 ColumnLayout {
     id: page
     spacing: 0
@@ -304,7 +314,7 @@ ColumnLayout {
                     Component.onCompleted: resizeToContent()
                     model: page.backend.servers.map(function (s) { return s.name || s.id })
                     currentIndex: {
-                        for (var i = 0; i < page.backend.servers.length; i++)
+                        for (let i = 0; i < page.backend.servers.length; i++)
                             if (page.backend.servers[i].id === page.backend.activeLogId) return i
                         return -1
                     }
@@ -552,6 +562,20 @@ ColumnLayout {
                     }
                 }
 
+                // ring-cell visibility, shared by the three bands of the
+                // machine ring grid (rings, legend row, sparklines) so a
+                // band never shows a cell whose ring is hidden
+                readonly property bool cpuShown: page.backend.statShowHardware
+                                                 && statsTab.hw !== null && statsTab.hw.cpuPct >= 0
+                readonly property bool gpuShown: page.backend.statShowHardware
+                                                 && statsTab.hw !== null && statsTab.hw.gpuUtil >= 0
+                readonly property bool vramShown: page.backend.statShowVram
+                                                  && statsTab.hw !== null
+                                                  && statsTab.hw.vramTotalMib > 0 && statsTab.hw.vramUsedMib >= 0
+                readonly property bool ramShown: page.backend.statShowHardware
+                                                 && statsTab.hw !== null
+                                                 && statsTab.hw.ramTotalMib > 0 && statsTab.hw.ramUsedMib >= 0
+
                 // Ring source colors: a fixed RED→AMBER gradient across the
                 // servers — the very endpoints of GaugeRing's tint (negative
                 // past 90%, neutral past 70%), so the segments speak the
@@ -579,8 +603,8 @@ ColumnLayout {
                         var own = -1
                         if (m.byServer[r.id] !== undefined) own = m.byServer[r.id]
                         else {
-                            var run = page.backend.runningMap[r.id]
-                            var pid = run && run.pid !== undefined ? String(run.pid) : ""
+                            const run = page.backend.runningMap[r.id]
+                            const pid = run && run.pid !== undefined ? String(run.pid) : ""
                             if (pid !== "" && m.procs[pid] !== undefined) own = m.procs[pid]
                             else if (r.st.kind === "strata" && r.st.ownVramMib >= 0) own = r.st.ownVramMib
                             else if (r.st.kind === "llama" && r.st.logVramUsedMib >= 0) own = r.st.logVramUsedMib - known
@@ -717,7 +741,7 @@ ColumnLayout {
                                       Logic.fmtTokens(st.events >= 0 ? st.events : 0))]
                     if (!page.backend.statShowTokens) return parts.join("  •  ")
                     if (st.kind === "audio") {
-                        var chunks = 0, wall = 0
+                        let chunks = 0, wall = 0
                         st.audioReqs.forEach(function (r) {
                             chunks += r.chunks
                             if (r.durMs >= 0) wall += r.durMs
@@ -727,13 +751,13 @@ ColumnLayout {
                         parts.push(Logic.fmtTokens(chunks) + " chunks")
                         parts.push("wall " + Logic.fmtFeedMs(wall))
                     } else {
-                        var tin = st.promptTok >= 0 ? st.promptTok : 0
-                        var tout = st.outTok >= 0 ? st.outTok : 0
-                        var reused = st.reusedTok >= 0 ? st.reusedTok : 0
+                        const tin = st.promptTok >= 0 ? st.promptTok : 0
+                        const tout = st.outTok >= 0 ? st.outTok : 0
+                        const reused = st.reusedTok >= 0 ? st.reusedTok : 0
                         parts.push(i18n("%1 tok in", Logic.fmtTokens(tin)))
                         parts.push(i18n("%1 tok out", Logic.fmtTokens(tout)))
                         if (reused > 0) {
-                            var pct = tin > 0 ? Math.round(100 * reused / tin) : 0
+                            const pct = tin > 0 ? Math.round(100 * reused / tin) : 0
                             parts.push(i18n("%1 reused (%2%)", Logic.fmtTokens(reused), pct))
                         }
                     }
@@ -744,11 +768,12 @@ ColumnLayout {
                 // metrics / llama log); the hardware tiles and all
                 // sparklines come from the system gpu poll (hw.hist).
                 function buildTiles() {
-                    var out = []
-                    var cfg = page.backend
-                    var hw = statsTab.hw
+                    const out = []
+                    const cfg = page.backend
+                    const hw = statsTab.hw
                     if (cfg.statShowTps && statsTab.rows.length > 0) {
-                        var cur = -1, mean = -1, tokSpark = []
+                        let cur = -1, mean = -1
+                        let tokSpark = []
                         statsTab.rows.forEach(function (r) {
                             if (!r.st) return
                             if (r.st.active && r.st.tps > cur) cur = r.st.tps
@@ -798,7 +823,7 @@ ColumnLayout {
                     if (!st || st.err === "") return ""
                     if (st.err === "no_port") return i18n("no HTTP port (set host + port to monitor)")
                     if (st.err === "unreachable" || st.err === "empty_body" || st.err === "no_metrics") {
-                        var b = Logic.serverBinary(command, page.backend.homeDir)
+                        const b = Logic.serverBinary(command, page.backend.homeDir)
                         return i18n("no metrics from its HTTP API%1",
                                     b === "llama-server" ? " (add --metrics to its command)" : "")
                     }
@@ -838,13 +863,18 @@ ColumnLayout {
                         spacing: Kirigami.Units.smallSpacing
 
                         // ── machine rings (the headline block: no title) ──
-                        // machine-wide counters from the `gpu` poll (nvidia-smi
-                        // + /proc + /sys) plus the plasmoid's own rolling
-                        // history for the sparklines. Each server's context
-                        // ring lives inside its card. Amber → red past the
-                        // thresholds. Column count adapts to the popup width;
-                        // fillWidth stretches the rings to occupy it fully,
-                        // and the readouts wrap inside their cell.
+                        // machine-wide counters from the `gpu` poll
+                        // (nvidia-smi + /proc + /sys), in ONE grid with
+                        // three aligned bands: the rings with their
+                        // readouts, the row of VRAM-owner swatches, and the
+                        // sparklines. The shared grid columns keep every
+                        // band on one line across all rings — VRAM's legend
+                        // can never pull its sparkline off the others'
+                        // baseline. Amber → red past the thresholds. Column
+                        // count adapts to the popup width; fillWidth
+                        // stretches the cells to occupy it fully, and the
+                        // readouts wrap inside their cell. Each server's
+                        // context ring lives inside its card.
                         GridLayout {
                             Layout.fillWidth: true
                             columns: Math.max(1, Math.min(4, Math.floor(
@@ -854,12 +884,11 @@ ColumnLayout {
                             rowSpacing: Kirigami.Units.smallSpacing
                             visible: statsTab.hw !== null
 
-                            // machine-wide rings (system counters)
+                            // band 1: rings + readouts
                             GaugeRing {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
-                                visible: page.backend.statShowHardware && statsTab.hw !== null
-                                         && statsTab.hw.cpuPct >= 0
+                                visible: statsTab.cpuShown
                                 name: i18n("CPU")
                                 frac: statsTab.hw ? Math.max(0, statsTab.hw.cpuPct) / 100 : 0
                                 readout: statsTab.hw && statsTab.hw.cores > 0
@@ -867,42 +896,123 @@ ColumnLayout {
                                             ? i18n("%1 cores / %2 threads", statsTab.hw.cores,
                                                    statsTab.hw.threads)
                                             : i18n("%1 cores", statsTab.hw.cores)) : ""
-                                spark: statsTab.hw ? (statsTab.hw.hist.cpu || []) : []
                             }
                             GaugeRing {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
-                                visible: page.backend.statShowHardware && statsTab.hw !== null
-                                         && statsTab.hw.gpuUtil >= 0
+                                visible: statsTab.gpuShown
                                 name: i18n("GPU")
                                 frac: statsTab.hw ? Math.max(0, statsTab.hw.gpuUtil) / 100 : 0
                                 readout: statsTab.hw ? Logic.gpuReadout(statsTab.hw.gpuName) : ""
-                                spark: statsTab.hw ? (statsTab.hw.hist.gpu_util || []) : []
                             }
                             GaugeRing {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
-                                visible: page.backend.statShowVram && statsTab.hw !== null
-                                         && statsTab.hw.vramTotalMib > 0 && statsTab.hw.vramUsedMib >= 0
+                                visible: statsTab.vramShown
                                 name: i18n("VRAM")
                                 frac: statsTab.hw ? Math.min(1, statsTab.hw.vramUsedMib / Math.max(1, statsTab.hw.vramTotalMib)) : 0
                                 readout: statsTab.hw ? Logic.fmtMibPair(statsTab.hw.vramUsedMib,
                                                                        statsTab.hw.vramTotalMib) : ""
+                                // arcs segmented per process holding VRAM;
+                                // who owns what is spelled out by band 2
                                 segments: statsTab.vramSegs
-                                // which server owns each arc, under the ring
-                                legend: statsTab.vramSegs.length > 1 ? statsTab.vramSegs : []
-                                spark: statsTab.hw ? (statsTab.hw.hist.gpu_mem_used || []) : []
                             }
                             GaugeRing {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignTop
-                                visible: page.backend.statShowHardware && statsTab.hw !== null
-                                         && statsTab.hw.ramTotalMib > 0 && statsTab.hw.ramUsedMib >= 0
+                                visible: statsTab.ramShown
                                 name: i18n("RAM")
                                 frac: statsTab.hw ? Math.min(1, statsTab.hw.ramUsedMib / Math.max(1, statsTab.hw.ramTotalMib)) : 0
                                 readout: statsTab.hw ? Logic.fmtMibPair(statsTab.hw.ramUsedMib,
                                                                        statsTab.hw.ramTotalMib) : ""
-                                spark: statsTab.hw ? (statsTab.hw.hist.ram_used || []) : []
+                            }
+
+                            // band 2: the legend row, one cell per column.
+                            // Plain empty Items (kept VISIBLE: layouts drop
+                            // invisible items and would slide the legend to
+                            // the wrong column) reserve the slots. The
+                            // legend cell: a bare Item (implicitWidth 0 — a
+                            // one-line Flow of labeled swatches would set
+                            // that column's minimum and starve the other
+                            // three; the wrapper contributes nothing) whose
+                            // implicitHeight follows the Flow so the band
+                            // never collapses onto the sparkline row. The
+                            // Flow is clamped to the cell's 1/4 width:
+                            // entries share a line while they fit, and wrap
+                            // to the next line the moment a pair would
+                            // exceed the column — never wider than 1/4.
+                            // model 0 empties it without shifting anything
+                            Item { Layout.fillWidth: true }
+                            Item { Layout.fillWidth: true }
+                            Item {
+                                id: legendCell
+                                Layout.fillWidth: true
+                                implicitHeight: vramFlow.implicitHeight
+                                // plain QtQuick Flow. Flow only knows a
+                                // single uniform `spacing`:
+                                // columnSpacing/rowSpacing DO NOT EXIST
+                                // on it (Qt 6.12 docs) and assigning
+                                // them kills the component at load
+                                Flow {
+                                    id: vramFlow
+                                    width: parent.width
+                                    spacing: Kirigami.Units.largeSpacing
+                                Repeater {
+                                    // model = count, not the array:
+                                    // vramSegs is a fresh array every probe
+                                    // tick and rebinding the model with it
+                                    // would rebuild (flicker) the rows
+                                    model: statsTab.vramShown && statsTab.vramSegs.length > 1
+                                           ? statsTab.vramSegs.length : 0
+                                    delegate: Row {
+                                        id: legendItem
+                                        required property int modelData
+                                        spacing: 3
+                                        Rectangle {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: 8
+                                            height: 8
+                                            radius: 4
+                                            color: statsTab.vramSegs[legendItem.modelData]
+                                                   ? statsTab.vramSegs[legendItem.modelData].color : "transparent"
+                                        }
+                                        PlasmaComponents.Label {
+                                            text: statsTab.vramSegs[legendItem.modelData]
+                                                  ? (statsTab.vramSegs[legendItem.modelData].label || "") : ""
+                                            font: Kirigami.Theme.smallFont
+                                            opacity: 0.7
+                                        }
+                                    }
+                                }
+                                }
+                            }
+                            Item { Layout.fillWidth: true }
+
+                            // band 3: rolling histories (strata's own
+                            // series, or the plasmoid's tok/hw samples)
+                            Sparkline {
+                                Layout.fillWidth: true
+                                visible: statsTab.cpuShown
+                                         && (statsTab.hw.hist.cpu || []).length > 1
+                                series: statsTab.hw ? (statsTab.hw.hist.cpu || []) : []
+                            }
+                            Sparkline {
+                                Layout.fillWidth: true
+                                visible: statsTab.gpuShown
+                                         && (statsTab.hw.hist.gpu_util || []).length > 1
+                                series: statsTab.hw ? (statsTab.hw.hist.gpu_util || []) : []
+                            }
+                            Sparkline {
+                                Layout.fillWidth: true
+                                visible: statsTab.vramShown
+                                         && (statsTab.hw.hist.gpu_mem_used || []).length > 1
+                                series: statsTab.hw ? (statsTab.hw.hist.gpu_mem_used || []) : []
+                            }
+                            Sparkline {
+                                Layout.fillWidth: true
+                                visible: statsTab.ramShown
+                                         && (statsTab.hw.hist.ram_used || []).length > 1
+                                series: statsTab.hw ? (statsTab.hw.hist.ram_used || []) : []
                             }
                         }
 
@@ -1103,7 +1213,7 @@ ColumnLayout {
                                                         // TTS and ASR (lazy_load swaps models per
                                                         // request, and different servers can load
                                                         // different families)
-                                                        var a = []
+                                                        let a = []
                                                         if (srv.st.audioTask !== "") a.push(srv.st.audioTask)
                                                         if (srv.st.audioBackend !== "") a.push(srv.st.audioBackend)
                                                         if (a.length > 0) parts.push("(" + a.join(" ") + ")")
@@ -1162,7 +1272,7 @@ ColumnLayout {
                                         Layout.fillWidth: true
                                         Layout.topMargin: 2
                                         Layout.bottomMargin: 2
-                                        height: 5
+                                        Layout.preferredHeight: 5
                                         radius: height / 2
                                         visible: srv.row !== null && srv.row.running
                                         color: statsTab.cardBorder

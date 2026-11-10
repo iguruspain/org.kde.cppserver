@@ -9,19 +9,21 @@ import QtQuick
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
 
+pragma ComponentBehavior: Bound
+
 Item {
     id: gauge
 
     required property real frac
     property string name: ""
     property string readout: ""
-    // optional history strip under the reading (strata's series)
-    property var spark: []
-    property color sparkColor: Kirigami.Theme.highlightColor
     // stacked sources for the used arc ({ frac, color, label }); when empty
     // the ring shows a plain frac arc
     property var segments: []
-    // optional swatch legend under the ring: [{ label, color }]
+    // optional swatch legend under the ring: [{ label, color }]. The machine
+    // ring block has no inner legend: its bands (rings / legend row /
+    // sparklines) are laid out by the caller's grid, which is what keeps
+    // every row aligned across all columns.
     property var legend: []
     // legend hangs from the ring's right edge instead of centering: used
     // for the card rings, which sit at the card's right edge and would
@@ -39,7 +41,6 @@ Item {
     implicitWidth: ringSize
     implicitHeight: ringSize
                       + (gauge.readout !== "" ? subText.height + 2 : 0)
-                      + (Array.isArray(gauge.spark) && gauge.spark.length > 1 ? sparkStrip.height + 3 : 0)
                       + (Array.isArray(gauge.legend) && gauge.legend.length > 0 ? legendRow.height + 3 : 0)
 
     Item {
@@ -117,25 +118,9 @@ Item {
         opacity: 0.65
     }
 
-    Sparkline {
-        id: sparkStrip
-        anchors.top: subText.bottom
-        anchors.topMargin: 3
-        anchors.horizontalCenter: parent.horizontalCenter
-        visible: Array.isArray(gauge.spark) && gauge.spark.length > 1
-        // stretch with the readout line above (same cell-width rule): a
-        // fixed ringSize strip read as clipped under the wider text
-        width: Math.max(ring.width, gauge.width)
-        // implicitHeight alone does nothing inside a plain Item: the strip
-        // would be 0 px tall and never paint
-        height: 18
-        series: gauge.spark
-        lineColor: gauge.sparkColor
-    }
-
     Flow {
         id: legendRow
-        anchors.top: sparkStrip.bottom
+        anchors.top: subText.bottom
         anchors.topMargin: 3
         // centered under the ring by default; with legendRight it hangs
         // from the ring's right edge (the card rings sit flush right and a
@@ -150,6 +135,7 @@ Item {
             // and a fresh array each tick would rebuild (flicker) the rows
             model: Array.isArray(gauge.legend) ? gauge.legend.length : 0
             delegate: Row {
+                id: legendItem
                 required property int modelData
                 spacing: 3
                 Rectangle {
@@ -157,10 +143,10 @@ Item {
                     width: 8
                     height: 8
                     radius: 2
-                    color: gauge.legend[modelData] ? gauge.legend[modelData].color : "transparent"
+                    color: gauge.legend[legendItem.modelData] ? gauge.legend[legendItem.modelData].color : "transparent"
                 }
                 PlasmaComponents.Label {
-                    text: gauge.legend[modelData] ? (gauge.legend[modelData].label || "") : ""
+                    text: gauge.legend[legendItem.modelData] ? (gauge.legend[legendItem.modelData].label || "") : ""
                     font: Kirigami.Theme.smallFont
                     opacity: 0.7
                 }
