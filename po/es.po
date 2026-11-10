@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-09 23:11+0100\n"
+"POT-Creation-Date: 2026-11-10 10:29+0100\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -95,7 +95,7 @@ msgid "No servers match"
 msgstr "Ningún servidor coincide"
 
 #: contents/ui/MainPage.qml:186 contents/ui/MainPage.qml:432
-#: contents/ui/MainPage.qml:1241 contents/ui/main.qml:54
+#: contents/ui/MainPage.qml:1365 contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr "No hay servidores configurados"
 
@@ -177,7 +177,7 @@ msgstr "(esperando salida…)"
 msgid "Server not running – start it from the Servers tab."
 msgstr "Servidor detenido – inícialo desde la pestaña Servidores."
 
-#: contents/ui/MainPage.qml:433 contents/ui/MainPage.qml:1243
+#: contents/ui/MainPage.qml:433 contents/ui/MainPage.qml:1367
 msgid "Add servers in the widget settings."
 msgstr "Añade servidores en los ajustes del widget."
 
@@ -281,52 +281,80 @@ msgstr "VRAM"
 msgid "RAM"
 msgstr "RAM"
 
-#: contents/ui/MainPage.qml:951
+#: contents/ui/MainPage.qml:954
 msgid "generating %1 / %2 tok"
 msgstr "generando %1 / %2 tok"
 
-#: contents/ui/MainPage.qml:954
+#: contents/ui/MainPage.qml:957
 msgid "reading prompt %1 / %2 tok"
 msgstr "leyendo prompt %1 / %2 tok"
 
-#: contents/ui/MainPage.qml:960
+#: contents/ui/MainPage.qml:963
 msgid "generating %1 tok"
 msgstr "generando %1 tok"
 
+#: contents/ui/MainPage.qml:1165
+msgid "chunks"
+msgstr "trozos"
+
+#: contents/ui/MainPage.qml:1166
+msgid "wall"
+msgstr "muro"
+
+#: contents/ui/MainPage.qml:1167
+msgid "first audio"
+msgstr "1er audio"
+
+#: contents/ui/MainPage.qml:1168
+msgid "state"
+msgstr "estado"
+
+#: contents/ui/MainPage.qml:1214
+msgid "error"
+msgstr "error"
+
+#: contents/ui/MainPage.qml:1215
+msgid "done"
+msgstr "hecho"
+
+#: contents/ui/MainPage.qml:1215
+msgid "generating"
+msgstr "generando"
+
 #. i18n(): they stay in English everywhere.
-#: contents/ui/MainPage.qml:1116
+#: contents/ui/MainPage.qml:1240
 msgid "requests"
 msgstr "peticiones"
 
-#: contents/ui/MainPage.qml:1119
+#: contents/ui/MainPage.qml:1243
 msgid "reused"
 msgstr "reutilizado"
 
-#: contents/ui/MainPage.qml:1120
+#: contents/ui/MainPage.qml:1244
 msgid "context"
 msgstr "contexto"
 
-#: contents/ui/MainPage.qml:1218
+#: contents/ui/MainPage.qml:1342
 msgid "%1 req total"
 msgstr "%1 petic. total"
 
-#: contents/ui/MainPage.qml:1220
+#: contents/ui/MainPage.qml:1344
 msgid "%1 tok in"
 msgstr "%1 tok ent."
 
-#: contents/ui/MainPage.qml:1221
+#: contents/ui/MainPage.qml:1345
 msgid "%1 tok out"
 msgstr "%1 tok sal."
 
-#: contents/ui/MainPage.qml:1224
+#: contents/ui/MainPage.qml:1348
 msgid "%1 reused (%2%)"
 msgstr "%1 reutilizados (%2%)"
 
-#: contents/ui/MainPage.qml:1241
+#: contents/ui/MainPage.qml:1365
 msgid "No servers running"
 msgstr "No hay servidores en ejecución"
 
-#: contents/ui/MainPage.qml:1244
+#: contents/ui/MainPage.qml:1368
 msgid "Start a server to see its live stats here."
 msgstr "Inicia un servidor para ver aquí sus estadísticas en vivo."
 
@@ -588,7 +616,9 @@ msgstr "Mostrar velocidad de generación (t/s)"
 
 #: contents/ui/config/ConfigStats.qml:34
 msgid "Show token totals (requests, in, out, reused, context)"
-msgstr "Mostrar totales de tokens (peticiones, entrada, salida, reutilizados, contexto)"
+msgstr ""
+"Mostrar totales de tokens (peticiones, entrada, salida, reutilizados, "
+"contexto)"
 
 #: contents/ui/config/ConfigStats.qml:39
 msgid "Show VRAM usage (split per server)"
@@ -607,8 +637,8 @@ msgid ""
 "proc), not by any server."
 msgstr ""
 "strata lo cuenta todo por su API HTTP (/metrics). llama.cpp da las mismas "
-"cifras - velocidad, contexto, peticiones en vivo - desde su log, así que "
-"no hace falta ninguna opción extra; --metrics solo añade contadores del "
+"cifras - velocidad, contexto, peticiones en vivo - desde su log, así que no "
+"hace falta ninguna opción extra; --metrics solo añade contadores del "
 "servidor. Las cifras de la máquina (GPU, CPU, RAM, disco) las sondea el "
 "propio widget (nvidia-smi y /proc), no las aporta ningún servidor."
 
@@ -620,18 +650,22 @@ msgstr "Iniciar todos"
 msgid "Stop all"
 msgstr "Detener todos"
 
-#: contents/ui/main.qml:220
+#: contents/ui/main.qml:228
 msgid "Could not read %1"
 msgstr "No se pudo leer %1"
 
-#: contents/ui/main.qml:225
+#: contents/ui/main.qml:233
 msgid "%1 is not valid JSON (expected a list of servers)"
 msgstr "%1 no es un JSON válido (se esperaba una lista de servidores)"
 
-#: contents/ui/main.qml:288
+#: contents/ui/main.qml:267
+msgid "strata (external %1)"
+msgstr "strata (externo %1)"
+
+#: contents/ui/main.qml:312
 msgid "Empty command for %1"
 msgstr "Comando vacío para %1"
 
-#: contents/ui/main.qml:298
+#: contents/ui/main.qml:322
 msgid "Failed to start %1"
 msgstr "No se pudo iniciar %1"
