@@ -203,11 +203,18 @@ test("parseStatusall: entries carry the alive boolean the UI relies on", () => {
         "llama-cpp alive=1 pid=60561 logfile=/home/u/.cache/cppserver/logs/llama-cpp.log\n" +
         "strata alive=1 pid=44 pid=/weird\n" +
         "audio-cpp alive=0\n" +
+        "external-iq3_s-128k alive=1 pid=77 logfile=/s/strata/launch/iq3_s-128k.engine.log\n" +
+        "extport-iq3_s-128k=18888\n" +
         "weird alive=1 pid=7 logfile=/x/my server.log\n");
     assert.equal(m["llama-cpp"].alive, true);
     assert.equal(m["llama-cpp"].pid, "60561");
     assert.equal(m["llama-cpp"].logfile, "/home/u/.cache/cppserver/logs/llama-cpp.log");
     assert.equal(m["audio-cpp"].alive, false);
+    // external engines ride the same entry shape; the extport key=value
+    // line is NOT an entry (no alive token) and must not pollute
+    assert.equal(m["external-iq3_s-128k"].alive, true);
+    assert.equal(m["external-iq3_s-128k"].pid, "77");
+    assert.equal(m["extport-iq3_s-128k"], undefined);
     // logfile is the raw tail of the line: spaces allowed, only pid= before it
     assert.equal(m["weird"].logfile, "/x/my server.log");
 });

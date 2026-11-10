@@ -58,6 +58,10 @@ PlasmoidItem {
     property string homeDir: ""
     property string configPath: ""
     property var allServers: []          // everything in servers.json
+    // strata engines already running when the plasmoid did not start them
+    // (terminal, another session): read-only synthetic entries built from
+    // statusall's external-<slug> lines, never written to servers.json
+    property var externalServers: []
     property var runningMap: ({})        // id -> { pid, logfile }
     property var pendingStarts: ({})     // id -> true while starting
     property var pendingStops: ({})      // id -> true while stopping
@@ -104,15 +108,17 @@ PlasmoidItem {
     readonly property bool statShowHardware: Plasmoid.configuration.statShowHardware !== false
 
     // Servers shown in the widget: enabled ones, plus any disabled one that is
-    // still running (so it can always be stopped).
+    // still running (so it can always be stopped), plus external strata
+    // engines (always running, read-only: no config entry, no Start).
     readonly property var servers: allServers.filter(function (s) {
         return s.enabled || !!runningMap[s.id]
-    })
+    }).concat(externalServers)
 
     readonly property int runningCount: Object.keys(runningMap).length
 
     // Shown servers that can be started right now (stopped, idle, binary found).
     readonly property var startable: servers.filter(function (s) {
+        if (s.external) return false     // external engines: stop only, never start
         if (runningMap[s.id] || pendingStarts[s.id] || pendingStops[s.id]) return false
         if (!s.enabled || s.command.trim() === "") return false
         return depsMap[Logic.serverBinary(s.command, homeDir)] !== false
@@ -134,6 +140,8 @@ PlasmoidItem {
     function serverById(id) {
         for (var i = 0; i < allServers.length; i++)
             if (allServers[i].id === id) return allServers[i]
+        for (var j = 0; j < externalServers.length; j++)
+            if (externalServers[j].id === id) return externalServers[j]
         return null
     }
 
@@ -247,6 +255,22 @@ PlasmoidItem {
                 var e = st[s.id]
                 if (e && e.alive) m[s.id] = { pid: e.pid, logfile: e.logfile }
             })
+            // strata engines started OUTSIDE the widget: read-only external
+            // cards under their own id. They never own a pidfile/marker, so
+            // the plasmoid's pid guard and an external engine can never
+            // shadow each other.
+            var exts = []
+            Object.keys(st).forEach(function (k) {
+                var slugPart = k.slice(9)   // "external-" prefix length
+                if (k.indexOf("external-") !== 0 || !st[k].alive) return
+                exts.push({ id: k, external: true,
+                            name: i18n("strata (external %1)", slugPart),
+                            command: "strata", host: "127.0.0.1",
+                            port: parseInt(kv["extport-" + slugPart] || "", 10) || 18888,
+                            configFile: "", preset: "", enabled: true })
+                m[k] = { pid: st[k].pid, logfile: st[k].logfile }
+            })
+            if (JSON.stringify(exts) !== JSON.stringify(externalServers)) externalServers = exts
             if (JSON.stringify(m) !== JSON.stringify(runningMap)) runningMap = m
             // servers.json changed on disk (config page, editor, another widget)
             if (kv.cfgmtime !== undefined && kv.cfgmtime !== cfgMtime) {
@@ -282,7 +306,7 @@ PlasmoidItem {
     function startServer(id) {
         if (pendingStarts[id] || runningMap[id]) return
         var s = serverById(id)
-        if (!s) return
+        if (!s || s.external) return
         var cmd = Logic.buildCommand(s, homeDir)
         if (cmd === "") {
             errorMsg = i18n("Empty command for %1", s.name)

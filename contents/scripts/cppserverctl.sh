@@ -6,10 +6,13 @@
 #   cfgread                   print the servers.json content ([] when missing)
 #   cfgwrite <json>           atomically replace servers.json
 #   start <id> <command>      launch detached  -> pid= logfile=   (or error=)
-#   stop <id>                 SIGTERM the process group, SIGKILL after 5 s
+#   stop <id>                 SIGTERM the process group, SIGKILL after 5 s;
+#                             external-<slug> -> strata launch --stop instead
 #   rename <old> <new>        migrate <old>.{log,pid} to <new>.{log,pid}; a
 #                             running server keeps running (no restart)
-#   statusall <id>...         cfgmtime=N, then "<id> alive=1 pid= logfile=" / "<id> alive=0"
+#   statusall <id>...         cfgmtime=N, then "<id> alive=1 pid= logfile=" / "<id> alive=0";
+#                             live strata engines no pidfile claims are also
+#                             emitted as "external-<slug> alive=1 ..." (+ extport-=)
 #   logread <path> [lines]    tail a log inside the log root (path-validated)
 #   deps <binary>...          <binary>=OK|MISSING
 #   probe <url>               GET a local http(s) endpoint, print the raw
@@ -26,7 +29,9 @@
 #          <id>.strata holds the preset NAME of a `strata launch --preset`
 #          server: the launcher exits while its engine keeps serving, so the
 #          pidfile is re-pointed at the engine found in strata's runtime state,
-#          and the Logs tab tails strata's own <slug>.engine.log.
+#          and the Logs tab tails strata's own <slug>.engine.log. An engine
+#          started OUTSIDE the widget has no pidfile/marker and is reported
+#          as external-<slug> under its own id — never adopted into a card.
 set -uo pipefail
 
 cmd="${1:-}"
@@ -163,6 +168,10 @@ start() {
         echo "error=missing_args"
         exit 2
     fi
+    if [[ "$id" == external-* ]]; then
+        echo "error=external_server"   # external engines are adopted, never (re)started
+        exit 2
+    fi
     ensure_log_root
     local logfile="$LOG_ROOT/$id.log" pidfile="$LOG_ROOT/$id.pid" marker="$LOG_ROOT/$id.strata"
     local preset_name=""
@@ -215,6 +224,26 @@ stop() {
     fi
     ensure_log_root
     local pidfile="$LOG_ROOT/$id.pid" marker="$LOG_ROOT/$id.strata" pid eslug
+    # external engine (external-<slug>): no pidfile/marker exists — ask strata
+    # to stop the profile gracefully, hard-kill only what survives.
+    if [[ "$id" == external-* ]]; then
+        eslug="${id#external-}"
+        if command -v strata >/dev/null 2>&1; then
+            timeout 12 strata launch --stop --preset "$eslug" >/dev/null 2>&1 || true
+        fi
+        pid="$(strata_engine_pid "$eslug")"
+        if [[ -n "$pid" ]]; then
+            kill -TERM "$pid" 2>/dev/null || true
+            local _
+            for _ in $(seq 1 50); do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.1
+            done
+            kill -KILL "$pid" 2>/dev/null || true
+        fi
+        echo "ok=1"
+        return
+    fi
     # strata launch engine: ask strata itself to stop the profile first
     # (cap it: strata waits for a graceful drain); the pid kill below is the
     # fallback for anything left.
@@ -260,6 +289,10 @@ rename() {
         echo "error=missing_args"
         exit 2
     fi
+    if [[ "$old" == external-* || "$new" == external-* ]]; then
+        echo "error=external_server"   # external entries are not real servers
+        exit 2
+    fi
     ensure_log_root
     local old_pidfile="$LOG_ROOT/$old.pid" new_pidfile="$LOG_ROOT/$new.pid"
     local old_logfile="$LOG_ROOT/$old.log" new_logfile="$LOG_ROOT/$new.log"
@@ -285,10 +318,11 @@ statusall() {
     fi
     ensure_log_root
     echo "cfgmtime=$(cfgmtime)"
-    local name id pid ename eslug epid logpath eeng
+    local name id pid ename eslug epid logpath eeng claimed=""
     for name in "$@"; do
         id="$(slug "$name")"
         pid="$(read_pid "$LOG_ROOT/$id.pid")"
+        [[ -n "$pid" ]] && claimed="$claimed $pid"
         ename=""
         if [[ -r "$LOG_ROOT/$id.strata" ]]; then
             ename="$(head -n 1 "$LOG_ROOT/$id.strata" 2>/dev/null)"
@@ -304,6 +338,7 @@ statusall() {
             if [[ -n "$epid" ]]; then
                 printf '%s %s\n' "$epid" "$(proc_start "$epid")" > "$LOG_ROOT/$id.pid"
                 pid="$epid"
+                claimed="$claimed $pid"   # adopted: must not also surface as external
             fi
         fi
         logpath="$LOG_ROOT/$id.log"
@@ -318,6 +353,27 @@ statusall() {
         else
             printf '%s alive=0\n' "$id"
         fi
+    done
+    # ── strata engines launched OUTSIDE the widget (terminal, other session) ──
+    # every live engine in strata's runtime state that no configured server
+    # claims surfaces as "external-<slug>": its stats/logs appear under their
+    # own id, and the plasmoid-managed pidfiles/markers stay untouched.
+    local f ep eport eeng
+    for f in "$STATE_DIR"/strata/runtime/launch-*-*.ready.json; do
+        [[ -r "$f" ]] || continue
+        ep="$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
+        [[ -n "$ep" && -d "/proc/$ep" ]] || continue
+        tr '\0' ' ' < "/proc/$ep/cmdline" 2>/dev/null | grep -qi strata || continue
+        [[ " $claimed " == *" $ep "* ]] && continue
+        eslug="$(basename "$f" .ready.json)"
+        eslug="${eslug#launch-}"
+        eslug="${eslug%-*}"          # drop the trailing -<hash>
+        [[ -n "$eslug" ]] || continue
+        eport="$(grep -oE '"bound_port"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
+        eeng="$STATE_DIR"/strata/launch/"$eslug".engine.log
+        [[ -r "$eeng" ]] || eeng=""
+        printf 'external-%s alive=1 pid=%s%s\n' "$eslug" "$ep" "${eeng:+ logfile=$eeng}"
+        [[ -n "$eport" ]] && printf 'extport-%s=%s\n' "$eslug" "$eport"
     done
 }
 
