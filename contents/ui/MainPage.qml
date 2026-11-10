@@ -722,8 +722,10 @@ ColumnLayout {
                             chunks += r.chunks
                             if (r.durMs >= 0) wall += r.durMs
                         })
-                        parts.push(i18n("%1 chunks", Logic.fmtTokens(chunks)))
-                        parts.push(i18n("wall %1", Logic.fmtFeedMs(wall)))
+                        // chunks/wall stay English (literal), like the
+                        // Chunks/Wall columns and the info-grid labels
+                        parts.push(Logic.fmtTokens(chunks) + " chunks")
+                        parts.push("wall " + Logic.fmtFeedMs(wall))
                     } else {
                         var tin = st.promptTok >= 0 ? st.promptTok : 0
                         var tout = st.outTok >= 0 ? st.outTok : 0
@@ -1287,10 +1289,13 @@ ColumnLayout {
                                         rowSpacing: 0
                                         visible: srv.audioCard
 
+                                        // "chunks"/"wall" are deliberately NOT
+                                        // i18n(): same untranslated technical
+                                        // terms as the table's Chunks/Wall
                                         PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("requests") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("chunks") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("wall") }
-                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("first audio") }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: "chunks" }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: "wall" }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("First audio") }
 
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
