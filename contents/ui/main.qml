@@ -288,7 +288,7 @@ PlasmoidItem {
                 var slugPart = k.slice(9)   // "external-" prefix length
                 if (k.indexOf("external-") !== 0 || !st[k].alive) return
                 exts.push({ id: k, external: true,
-                            name: i18n("strata (external %1)", slugPart),
+                            name: i18n("strata (external)"),
                             command: "strata", host: "127.0.0.1",
                             port: parseInt(kv["extport-" + slugPart] || "", 10) || 18888,
                             configFile: "", preset: "", enabled: true })

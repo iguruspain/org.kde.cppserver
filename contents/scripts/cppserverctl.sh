@@ -21,8 +21,11 @@
 #   presets                   strata launch presets -> presets=<json>
 #                             (or error=strata_missing|presets_failed)
 #   gpu                       host counters: proc=<pid>:<mib> (per-process
-#                             VRAM via nvidia-smi), gpuused/gputotal/gpuutil/
-#                             gputemp/gpupow, ramused/ramtotal, cpu
+#                             VRAM via nvidia-smi), vramowner=<id>=<mib> (each
+#                             holder walked up to its owning session — pidfile,
+#                             or external strata engine via its ready.json pid),
+#                             gpuused/gputotal/gpuutil/gputemp/gpupow,
+#                             ramused/ramtotal, cpu
 #
 # Config : ${XDG_CONFIG_HOME:-~/.config}/cppserver/servers.json
 # Runtime: ${XDG_CACHE_HOME:-~/.cache}/cppserver/logs/<id>.{log,pid}
@@ -75,6 +78,26 @@ strata_preset_of() {
         name="$(printf '%s' "$1" | sed -nE 's/.*--preset[[:space:]]+([^"'"'"'[:space:]][^[:space:]]*).*/\1/p')"
     fi
     if [[ -n "$name" ]]; then printf '%s\n' "$name"; fi
+}
+
+# Every live strata engine in strata's runtime state, one "pid<TAB>slug<TAB>port"
+# line each (port empty when the ready file has none) — shared by the statusall
+# external scan and the gpu VRAM attribution (an engine launched outside the
+# widget has no pidfile, so its ready.json pid is the anchor to walk up from).
+strata_external_engines() {
+    local f ep eslug eport
+    for f in "$STATE_DIR"/strata/runtime/launch-*-*.ready.json; do
+        [[ -r "$f" ]] || continue
+        ep="$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
+        [[ -n "$ep" && -d "/proc/$ep" ]] || continue
+        tr '\0' ' ' < "/proc/$ep/cmdline" 2>/dev/null | grep -qi strata || continue
+        eslug="$(basename "$f" .ready.json)"
+        eslug="${eslug#launch-}"
+        eslug="${eslug%-*}"          # drop the trailing -<hash>
+        [[ -n "$eslug" ]] || continue
+        eport="$(grep -oE '"bound_port"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
+        printf '%s\t%s\t%s\n' "$ep" "$eslug" "$eport"
+    done
 }
 
 # Live engine pid strata recorded for the launch profile, "" when none.
@@ -358,23 +381,14 @@ statusall() {
     # every live engine in strata's runtime state that no configured server
     # claims surfaces as "external-<slug>": its stats/logs appear under their
     # own id, and the plasmoid-managed pidfiles/markers stay untouched.
-    local f ep eport eeng
-    for f in "$STATE_DIR"/strata/runtime/launch-*-*.ready.json; do
-        [[ -r "$f" ]] || continue
-        ep="$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
-        [[ -n "$ep" && -d "/proc/$ep" ]] || continue
-        tr '\0' ' ' < "/proc/$ep/cmdline" 2>/dev/null | grep -qi strata || continue
+    local ep eport
+    while IFS=$'\t' read -r ep eslug eport; do
         [[ " $claimed " == *" $ep "* ]] && continue
-        eslug="$(basename "$f" .ready.json)"
-        eslug="${eslug#launch-}"
-        eslug="${eslug%-*}"          # drop the trailing -<hash>
-        [[ -n "$eslug" ]] || continue
-        eport="$(grep -oE '"bound_port"[[:space:]]*:[[:space:]]*[0-9]+' "$f" | grep -oE '[0-9]+' | head -n 1)"
         eeng="$STATE_DIR"/strata/launch/"$eslug".engine.log
         [[ -r "$eeng" ]] || eeng=""
         printf 'external-%s alive=1 pid=%s%s\n' "$eslug" "$ep" "${eeng:+ logfile=$eeng}"
         [[ -n "$eport" ]] && printf 'extport-%s=%s\n' "$eslug" "$eport"
-    done
+    done < <(strata_external_engines)
 }
 
 logread() {
@@ -492,6 +506,14 @@ gpu() {
             sp="$(read_pid "$pf")"
             [[ -n "$sp" ]] && vram_pid_owner["$sp"]="${pf##*/}"
         done
+        # External strata engines never own a pidfile — anchor their VRAM
+        # workers on the ready.json engine pid instead, keyed as the widget's
+        # external id. Pidfile entries are inserted first and never overwritten:
+        # a configured server always keeps the attribution of an engine it claims.
+        local eep eslug _eport
+        while IFS=$'\t' read -r eep eslug _eport; do
+            [[ -n "${vram_pid_owner[$eep]:-}" ]] || vram_pid_owner["$eep"]="external-$eslug"
+        done < <(strata_external_engines)
         nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits 2>/dev/null |
         while IFS=, read -r p m; do
             p="${p// /}"; m="${m// /}"
