@@ -532,17 +532,46 @@ KCM.SimpleKCM {
                                 Layout.fillWidth: true
                                 spacing: Kirigami.Units.smallSpacing
                                 QQC2.ComboBox {
+                                    id: presetCombo
                                     Layout.fillWidth: true
                                     Layout.minimumWidth: 0
                                     editable: true
                                     model: page.presetNames
-                                    // ComboBox.text is read-only; drive the
-                                    // displayed value via editText/index
-                                    currentIndex: page.presetNames.indexOf(card.preset)
-                                    editText: card.preset
+                                    // servers.json is the only source of truth. An
+                                    // editable ComboBox echoes its own C++ bookkeeping
+                                    // through editTextChanged: setCurrentIndex(-1) clears
+                                    // editText during componentComplete, and rowsInserted
+                                    // (presets arriving) forces currentIndex to 0, writing
+                                    // the first item into editText — both used to save
+                                    // "" / the first preset into the model with the user
+                                    // touching nothing. So: no bindings on
+                                    // currentIndex/editText, seed imperatively after C++
+                                    // init, and echo back only genuine user input:
+                                    //   popup click = activated (explicit pick);
+                                    //   typed text  = combo focused AND the text not
+                                    //   explained by the highlighted index (covers the
+                                    //   rowsInserted echo even while the combo is focused).
                                     onActivated: page.setField(card.index, "preset", String(model[index] || ""))
-                                    onEditTextChanged: if (editText !== card.preset)
+                                    onEditTextChanged: {
+                                        if (!activeFocus || editText === card.preset) return
+                                        if (currentIndex >= 0 && editText === String(model[currentIndex] || "")) return
                                         page.setField(card.index, "preset", editText.trim())
+                                    }
+                                    // Highlight the selected preset once the strata list
+                                    // arrives. Setting currentIndex also writes editText —
+                                    // only safe because it is done when both strings match.
+                                    function adoptListPreset() {
+                                        var i = page.presetNames.indexOf(card.preset)
+                                        if (i >= 0 && i !== currentIndex)
+                                            currentIndex = i
+                                    }
+                                    Component.onCompleted: {
+                                        editText = card.preset
+                                        adoptListPreset()
+                                    }
+                                    // The rowsInserted auto-index-0 echo lands *after*
+                                    // countChanged (measured in QQC2 6.12): rebake deferred.
+                                    onCountChanged: { adoptListPreset(); Qt.callLater(adoptListPreset) }
                                 }
                                 QQC2.ToolButton {
                                     icon.name: "view-refresh"
