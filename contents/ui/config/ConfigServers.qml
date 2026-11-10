@@ -15,6 +15,11 @@ import org.kde.plasma.plasma5support as P5Support
 
 import "../logic.js" as Logic
 
+pragma ComponentBehavior: Bound
+
+// i18n() is a global injected by the KCM runtime and invisible to the linter.
+// qmllint disable unqualified
+
 KCM.SimpleKCM {
     id: page
 
@@ -59,11 +64,11 @@ KCM.SimpleKCM {
     ListModel { id: serversModel }
 
     function toArray() {
-        var out = []
-        for (var i = 0; i < serversModel.count; i++) {
-            var m = serversModel.get(i)
+        const out = []
+        for (let i = 0; i < serversModel.count; i++) {
+            const m = serversModel.get(i)
             out.push({ id: m.sid, name: m.name, command: m.command, host: m.host,
-                       port: m.port, configFile: m.configFile, preset: m.preset, enabled: m.enabled })
+                       port: m.port, configFile: m.configFile, preset: m.preset, enabled: m.srvEnabled })
         }
         return out
     }
@@ -71,7 +76,7 @@ KCM.SimpleKCM {
     function uniqueId(base) {
         var b = Logic.slugify(base) || "server"
         var id = b, n = 2
-        function taken(x) { for (var i = 0; i < serversModel.count; i++) if (serversModel.get(i).sid === x) return true; return false }
+        function taken(x) { for (let i = 0; i < serversModel.count; i++) if (serversModel.get(i).sid === x) return true; return false }
         while (taken(id)) id = b + "-" + (n++)
         return id
     }
@@ -95,7 +100,7 @@ KCM.SimpleKCM {
                 }
                 Logic.normalizeServers(parsed).forEach(function (s) {
                     serversModel.append({ sid: s.id, name: s.name, command: s.command, host: s.host,
-                                   port: s.port, configFile: s.configFile, preset: s.preset, enabled: s.enabled })
+                                   port: s.port, configFile: s.configFile, preset: s.preset, srvEnabled: s.enabled })
                 })
                 page.loaded = true
             })
@@ -159,7 +164,7 @@ KCM.SimpleKCM {
 
     // True when some server other than exceptIndex already uses this id.
     function idTaken(id, exceptIndex) {
-        for (var i = 0; i < serversModel.count; i++) {
+        for (let i = 0; i < serversModel.count; i++) {
             if (i !== exceptIndex && serversModel.get(i).sid === id) return true
         }
         return false
@@ -181,15 +186,17 @@ KCM.SimpleKCM {
     function addServer(name, command, port, configFile, preset) {
         var id = uniqueId(name || "server")
         serversModel.append({ sid: id, name: name, command: command, host: "127.0.0.1", port: port,
-                       configFile: configFile, preset: preset || "", enabled: true })
+                       configFile: configFile, preset: preset || "", srvEnabled: true })
         expandedId = id
         focusId = id
         scheduleSave()
     }
 
-    function previewCommand(i) {
-        var m = serversModel.get(i)
-        return Logic.buildCommand(m, homeDir)
+    // Explicit values (not serversModel.get): the preview binding tracks the
+    // delegate's live roles, so editing a field re-evaluates the preview.
+    function previewCommand(cmd, host, port, configFile, preset) {
+        return Logic.buildCommand({ command: cmd, host: host, port: port,
+                                    configFile: configFile, preset: preset }, homeDir)
     }
 
     readonly property var templates: [
@@ -258,8 +265,8 @@ KCM.SimpleKCM {
     // ── UI ────────────────────────────────────────────────────────────────
     ColumnLayout {
         spacing: Kirigami.Units.largeSpacing
-        width: Math.min(page.width - pageMargin * 2, Kirigami.Units.gridUnit * 45)
-        x: Math.max(pageMargin, (page.width - width) / 2)
+        width: Math.min(page.width - page.margins * 2, Kirigami.Units.gridUnit * 45)
+        x: Math.max(page.margins, (page.width - width) / 2)
 
         Kirigami.InlineMessage {
             Layout.fillWidth: true
@@ -370,7 +377,7 @@ KCM.SimpleKCM {
                 required property int port
                 required property string configFile
                 required property string preset
-                required property bool enabled
+                required property bool srvEnabled
 
                 readonly property bool strataLaunch: /\bstrata\s+launch\b/.test(command)
                                                      && command.includes("--preset")
@@ -411,14 +418,14 @@ KCM.SimpleKCM {
                         QQC2.Label {
                             text: card.index + 1
                             font.bold: true
-                            color: card.enabled ? Kirigami.Theme.highlightColor : Kirigami.Theme.disabledTextColor
+                            color: card.srvEnabled ? Kirigami.Theme.highlightColor : Kirigami.Theme.disabledTextColor
                             Layout.preferredWidth: Kirigami.Units.gridUnit * 1.5
                             horizontalAlignment: Text.AlignHCenter
                         }
 
                         QQC2.Switch {
-                            checked: card.enabled
-                            onToggled: page.setField(card.index, "enabled", checked)
+                            checked: card.srvEnabled
+                            onToggled: page.setField(card.index, "srvEnabled", checked)
                             QQC2.ToolTip.visible: hovered
                             QQC2.ToolTip.text: i18n("Show in the widget")
                         }
@@ -426,7 +433,7 @@ KCM.SimpleKCM {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 0
-                            opacity: card.enabled ? 1 : 0.55
+                            opacity: card.srvEnabled ? 1 : 0.55
 
                             QQC2.Label {
                                 Layout.fillWidth: true
@@ -495,7 +502,7 @@ KCM.SimpleKCM {
 
                         Labeled {
                             label: i18n("Log ID:")
-                            QQC2.ToolTip.visible: hovered
+                            QQC2.ToolTip.visible: page.hovered
                             QQC2.ToolTip.text: i18n("Stable identifier; the log file is named after it. Changing it renames the log (a running server keeps running).")
                             QQC2.TextField {
                                 Layout.fillWidth: true
@@ -551,7 +558,9 @@ KCM.SimpleKCM {
                                     //   typed text  = combo focused AND the text not
                                     //   explained by the highlighted index (covers the
                                     //   rowsInserted echo even while the combo is focused).
-                                    onActivated: page.setField(card.index, "preset", String(model[index] || ""))
+                                    onActivated: function (index) {
+                                        page.setField(card.index, "preset", String(model[index] || ""))
+                                    }
                                     onEditTextChanged: {
                                         if (!activeFocus || editText === card.preset) return
                                         if (currentIndex >= 0 && editText === String(model[currentIndex] || "")) return
@@ -656,9 +665,9 @@ KCM.SimpleKCM {
                                 font.family: "monospace"
                                 font.pointSize: Kirigami.Theme.smallFont.pointSize
                                 opacity: 0.75
-                                // touch the fields so the preview re-evaluates on edit
-                                text: (card.command, card.host, card.port, card.configFile,
-                                       page.previewCommand(card.index)) || i18n("(empty)")
+                                text: page.previewCommand(card.command, card.host, card.port,
+                                                          card.configFile, card.preset)
+                                      || i18n("(empty)")
                             }
                         }
                     }

@@ -9,6 +9,14 @@ import org.kde.plasma.plasmoid
 import org.kde.kcmutils as KCM
 import org.kde.kirigami as Kirigami
 
+pragma ComponentBehavior: Bound
+
+// The kcfg schema (contents/config/main.xml) is invisible to the linter
+// without --project, so every Plasmoid.configuration.<key> looks like a missing member.
+// qmllint disable missing-property
+// i18n() is a global injected by the KCM runtime and invisible to qmllint.
+// qmllint disable unqualified
+
 KCM.SimpleKCM {
     id: page
 
@@ -41,7 +49,7 @@ KCM.SimpleKCM {
                 enabled: !Plasmoid.configuration.logFontAuto
             }
             QQC2.Label {
-                width: Layout.preferredWidth
+                Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 verticalAlignment: Text.AlignVCenter
                 text: Plasmoid.configuration.logFontAuto

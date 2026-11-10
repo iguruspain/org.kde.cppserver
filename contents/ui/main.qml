@@ -14,12 +14,21 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
-import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 
 import "logic.js" as Logic
+
+// Bound component behavior: no implicit capture of outer scope in nested
+// components (delegates, representations).
+pragma ComponentBehavior: Bound
+// The two categories qmllint can never see here: the runtime-injected i18n()
+// global, and the kcfg schema (contents/config/main.xml) behind
+// Plasmoid.configuration (this qmllint has no --project/kcfg support).
+// Everything else stays checked.
+// qmllint disable unqualified
+// qmllint disable missing-property
 
 PlasmoidItem {
     id: root
@@ -138,9 +147,9 @@ PlasmoidItem {
     }
 
     function serverById(id) {
-        for (var i = 0; i < allServers.length; i++)
+        for (let i = 0; i < allServers.length; i++)
             if (allServers[i].id === id) return allServers[i]
-        for (var j = 0; j < externalServers.length; j++)
+        for (let j = 0; j < externalServers.length; j++)
             if (externalServers[j].id === id) return externalServers[j]
         return null
     }
@@ -191,7 +200,7 @@ PlasmoidItem {
 
     function run(cmd, handler) {
         // Drop duplicates of a command that is already waiting (log/status polls).
-        for (var i = 0; i < cmdQueue.length; i++)
+        for (let i = 0; i < cmdQueue.length; i++)
             if (cmdQueue[i].cmd === cmd) return
         if (currentJob && currentJob.cmd === cmd) return
         cmdQueue = cmdQueue.concat([{ cmd: cmd, handler: handler }])
@@ -207,7 +216,7 @@ PlasmoidItem {
         property int lastSerial: -1
         onTriggered: {
             if (root.currentJob && root.currentJob.serial === lastSerial) {
-                var job = root.currentJob
+                const job = root.currentJob
                 exe.disconnectSource(job.cmd)
                 root.currentJob = null
                 if (job.handler) job.handler(-1, "", "timeout")
@@ -274,7 +283,7 @@ PlasmoidItem {
             if (JSON.stringify(m) !== JSON.stringify(runningMap)) runningMap = m
             // servers.json changed on disk (config page, editor, another widget)
             if (kv.cfgmtime !== undefined && kv.cfgmtime !== cfgMtime) {
-                var first = (cfgMtime === "")
+                const first = (cfgMtime === "")
                 cfgMtime = kv.cfgmtime
                 if (!first) reloadConfig()
             }
@@ -317,7 +326,7 @@ PlasmoidItem {
             pendingStarts = Logic.withoutKey(pendingStarts, id)
             var kv = Logic.parseKv(out)
             if (code !== 0 || kv.error || !kv.pid) {
-                var detail = kv.logerror || (kv.error && kv.error !== "start_failed" ? kv.error : "")
+                const detail = kv.logerror || (kv.error && kv.error !== "start_failed" ? kv.error : "")
                              || (err ? err.split("\n")[0] : "")
                 errorMsg = i18n("Failed to start %1", s.name) + (detail !== "" ? ": " + detail : "")
                 if (kv.error === "already_running") checkStatuses()
@@ -370,7 +379,7 @@ PlasmoidItem {
         if (!e) {
             // Server stopped: keep whatever the last session printed.
             if (logTexts[id] === undefined) {
-                var lt0 = Object.assign({}, logTexts); lt0[id] = ""; logTexts = lt0
+                const lt0 = Object.assign({}, logTexts); lt0[id] = ""; logTexts = lt0
             }
             return
         }
@@ -603,7 +612,7 @@ PlasmoidItem {
         if (code !== 0) {
             entry.err = body.indexOf("error=") === 0 ? body.slice(6) : "unreachable"
         } else if (body.charAt(0) === "{") {
-            var j = Logic.safeJsonParse(body, null)
+            const j = Logic.safeJsonParse(body, null)
             // strata answers /health with service=strata, but /metrics does
             // not carry that key: its engine+history sections label it
             entry.kind = (j && (j.service === "strata" || (j.engine && j.history)))
@@ -689,7 +698,7 @@ PlasmoidItem {
                 // the audio model is per request (lazy_load): keep it warm
                 // in the cross-restart cache so an idle window whose lines
                 // aged out of the tail still labels the card
-                var st = Logic.parseStats(cur, {}, {})
+                const st = Logic.parseStats(cur, {}, {})
                 if (st.model && statsModels[id] !== st.model) statsModels[id] = st.model
             } else {
                 // the loaded model is a log fact: harvest markers from the
@@ -722,7 +731,7 @@ PlasmoidItem {
         repeat: true
         onTriggered: root.pollStats()
     }
-    onExpandedChanged: if (root.expanded && homeDir !== "") checkStatuses()
+    onExpandedChanged: if (root.expanded && root.homeDir !== "") root.checkStatuses()
 
     Component.onCompleted: {
         loadUiState()
