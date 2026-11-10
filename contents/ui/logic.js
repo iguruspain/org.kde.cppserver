@@ -415,8 +415,10 @@ function fmtFeedMs(ms) {
 function fmtFeedTtfb(v) {
     return v === null ? "null" : fmtFeedMs(v);
 }
-// cap for audioReqs (all families together); mirrors mergeReqs' cap
+// cap for audioReqs (all families together); mirrors REQ_FEED_MAX
 const AUDIO_FEED_MAX = 8;
+// cap for one server card's request table
+const REQ_FEED_MAX = 8;
 // audio.cpp log tail -> the audio fields of a parseStats shape.
 // Recognized lines (families change every audio.cpp release, so keys are
 // matched structurally, never by family name):
@@ -433,10 +435,10 @@ const AUDIO_FEED_MAX = 8;
 //   [TIMING ts=…] <family>.session.first_audio_ms -> time to first audio
 //   [SERVER_ERROR] / engine error / exception    -> flags the request
 // Feed: one row per request per family (newest first, the open request
-// included live), collected in s.audioReqs; the card draws one header
-// per family over its entries. No token/context data exists for audio
-// (TTS/ASR have neither). Speed is deliberately NOT derivable: the
-// server computes the audio duration (minitts::server::audio_duration_ms)
+// included live), collected in s.audioReqs; the card's own request table
+// draws them as rows, family in its own column. No token/context data
+// exists for audio (TTS/ASR have neither). Speed is deliberately NOT
+// derivable: the server computes the audio duration (minitts::server::audio_duration_ms)
 // but only puts it in API responses, never in stdout — any "x real-time"
 // figure would be a guess. Old-format logs (no ts= markers) parse to an
 // idle card: without stamps there is nothing to measure or attribute.
@@ -612,7 +614,7 @@ function audioLogStats(log, s, nowSec) {
     order.forEach(function (n) { total += fams.get(n).reqs; });
     if (total > 0) s.events = total;
     // newest first across families, each row tagged with its family (the
-    // card re-groups rows under one header per model family)
+    // card's table shows it as the Model column)
     const all = [];
     order.forEach(function (n) { fams.get(n).feed.forEach(function (r) { all.push(Object.assign({ fam: n }, r)); }); });
     all.sort(function (a, b) { return b.at - a.at; });
@@ -904,9 +906,9 @@ function parseStats(entry, seen, extra) {
         // audio.cpp (audiocpp_server, with --log): the /health probe only
         // tells us it answers — the real state lives in the log tail
         // (request lines + [TIMING] blocks; see audioLogStats). No tokens,
-        // no context: the card gets state + model, and its OWN per-request
-        // feed (audioReqs) instead of the token grid; it never contributes
-        // to the shared table or the Speed tile.
+        // no context: the card gets state + model, its OWN info grid, and
+        // its OWN per-request table (audioReqs); it never contributes to
+        // the Speed tile.
         if (e.log) {
             const nowSec = (typeof x.now === "number" && x.now > 0)
                 ? x.now : Math.floor(Date.now() / 1000);
@@ -921,17 +923,19 @@ function parseStats(entry, seen, extra) {
     return s;
 }
 
-// One row of the shared request stream: a parsed request -> the final
-// display string per column key (numbers included). i18n headers are added
-// by the UI; the values here need no localization.
-function fmtReqRow(r) {
+// One row of a card's request table: a parsed request -> the final display
+// string per column key (numbers included). The server column is gone — the
+// row lives inside its own server's card. i18n headers are added by the UI;
+// the values here need no localization. tokens === false blanks the token
+// columns (the Stats "show tokens" toggle).
+function fmtReqRow(r, tokens) {
+    const show = tokens !== false;
     return {
         time: r.at > 0 ? fmtClock(r.at) : "–",
-        server: r.name || "",
         status: r.finish || "",
         inTok: r.inTok > 0 ? fmtTokensFull(r.inTok) : "–",
-        reused: r.reused > 0 ? fmtTokensFull(r.reused) : "–",
-        outTok: r.outTok > 0 ? fmtTokensFull(r.outTok) : "–",
+        reused: show && r.reused > 0 ? fmtTokensFull(r.reused) : "–",
+        outTok: show && r.outTok > 0 ? fmtTokensFull(r.outTok) : "–",
         // exact measurement, no rounding tricks in the table
         tps: r.tps > 0 ? r.tps.toFixed(2) : "-",
         dur: r.durS > 0 ? r.durS.toFixed(1) + "s" : "–"
@@ -944,18 +948,18 @@ function fmtClock(epochS) {
     return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
 }
 
-// Recent requests across all servers, newest first (rows without a real
-// timestamp sink to the bottom). entries: [{ name, reqs }].
-function mergeReqs(entries, max) {
+// One card's request table: that server's parsed requests, newest first
+// (rows without a real timestamp sink to the bottom), capped, already
+// formatted per column. audio never comes through here: its card builds
+// its own rows from st.audioReqs (the state labels are i18n, main.qml).
+function serverReqFeed(reqs, tokens) {
     const all = [];
-    (entries || []).forEach(function (e) {
-        if (!e || !Array.isArray(e.reqs)) return;
-        e.reqs.forEach(function (r) {
-            if (r) all.push(Object.assign({ name: e.name }, r));
-        });
+    (Array.isArray(reqs) ? reqs : []).forEach(function (r) {
+        if (r) all.push(r);
     });
     all.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
-    return all.slice(0, max > 0 ? max : 8);
+    return all.slice(0, REQ_FEED_MAX > 0 ? REQ_FEED_MAX : 8)
+        .map(function (r) { return fmtReqRow(r, tokens); });
 }
 
 // llama.cpp without --metrics: derive the same fields from its log tail.

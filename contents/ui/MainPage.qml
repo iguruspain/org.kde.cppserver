@@ -619,9 +619,34 @@ ColumnLayout {
                     }
                     return segs
                 }
-                // the recent-requests table lives in ReqTable.qml: it gets
-                // the stream (backend.statsReqRows) verbatim and owns its
-                // measurement/stretching
+                // ── per-card request tables ──
+                // The unified all-servers stream is gone: every card draws
+                // its own table (ReqTable.qml measures and stretches it)
+                // fed by backend.statsFeedMaps[id]. Column definitions:
+                // text servers keep the old stream's columns minus the
+                // server column — the card IS the server; audio.cpp gets
+                // its own (family/chunks/wall/first-audio, state flagged
+                // negative on err rows). "Prompt"/"Out"/"Decode t/s" and
+                // "Chunks"/"Wall" are deliberately NOT i18n(): they stay
+                // English everywhere. Every column title starts uppercase.
+                readonly property var reqCols: [
+                    { key: "time", title: i18n("Time"), mono: true },
+                    { key: "status", title: i18n("State") },
+                    { key: "inTok", title: "Prompt", right: true },
+                    { key: "reused", title: "Reused", right: true },
+                    { key: "outTok", title: "Out", right: true },
+                    { key: "tps", title: "Decode t/s", right: true },
+                    { key: "dur", title: i18n("Duration"), right: true }
+                ]
+                readonly property var audioCols: [
+                    { key: "time", title: i18n("Time"), mono: true },
+                    { key: "model", title: i18n("Model") },
+                    { key: "status", title: i18n("State"), errKey: "err" },
+                    { key: "chunks", title: "Chunks", right: true, mono: true },
+                    { key: "wall", title: "Wall", right: true, mono: true },
+                    { key: "first", title: i18n("First audio"), right: true, mono: true }
+                ]
+
                 // Stable Repeater inputs + live lookup maps (see above).
                 property var rowsById: ({})
                 property var rowIds: []
@@ -679,6 +704,39 @@ ColumnLayout {
                                                             Kirigami.Theme.textColor.b, 0.15)
 
                 function fmt1(v) { return (Math.round(v * 10) / 10).toFixed(1) }
+
+                // footer under each card's own table: text servers report
+                // their session counters (requests, tok in/out, reused);
+                // audio.cpp has no tokens, so its footer states what the
+                // table window covers — requests seen in the tail plus the
+                // chunks/wall sums of the rows on screen
+                function cardFooter(row) {
+                    var st = row ? row.st : null
+                    if (!st) return " "
+                    var parts = [i18n("%1 req total",
+                                      Logic.fmtTokens(st.events >= 0 ? st.events : 0))]
+                    if (!page.backend.statShowTokens) return parts.join("  •  ")
+                    if (st.kind === "audio") {
+                        var chunks = 0, wall = 0
+                        st.audioReqs.forEach(function (r) {
+                            chunks += r.chunks
+                            if (r.durMs >= 0) wall += r.durMs
+                        })
+                        parts.push(i18n("%1 chunks", Logic.fmtTokens(chunks)))
+                        parts.push(i18n("wall %1", Logic.fmtFeedMs(wall)))
+                    } else {
+                        var tin = st.promptTok >= 0 ? st.promptTok : 0
+                        var tout = st.outTok >= 0 ? st.outTok : 0
+                        var reused = st.reusedTok >= 0 ? st.reusedTok : 0
+                        parts.push(i18n("%1 tok in", Logic.fmtTokens(tin)))
+                        parts.push(i18n("%1 tok out", Logic.fmtTokens(tout)))
+                        if (reused > 0) {
+                            var pct = tin > 0 ? Math.round(100 * reused / tin) : 0
+                            parts.push(i18n("%1 reused (%2%)", Logic.fmtTokens(reused), pct))
+                        }
+                    }
+                    return parts.join("  •  ")
+                }
 
                 // KPI tiles: Speed comes from the server rows (strata
                 // metrics / llama log); the hardware tiles and all
@@ -935,9 +993,41 @@ ColumnLayout {
                                 // it is never destroyed.
                                 readonly property var row: statsTab.rowsById[modelData] || null
                                 readonly property var st: srv.row ? srv.row.st : null
-                                // audio.cpp replaces the token grid with its
-                                // own request feed: TTS/ASR have no tokens
+                                // audio.cpp draws its own info grid and its
+                                // own table: TTS/ASR have no tokens
                                 readonly property bool audioCard: srv.st !== null && srv.st.kind === "audio"
+                                // the card's table is COLLAPSED by default —
+                                // only the table collapses, the footer stays
+                                // as the one-line summary. The delegate is
+                                // keyed by server id, so the choice survives
+                                // every 1 s probe refresh (resets when the
+                                // tab rebuilds — the default is collapsed).
+                                property bool feedOpen: false
+                                // this server's own formatted request rows
+                                // (stable references: an idle server keeps
+                                // the exact same array every tick)
+                                readonly property var feedRows: {
+                                    var f = page.backend.statsFeedMaps[modelData]
+                                    return Array.isArray(f) ? f : []
+                                }
+                                // totals behind the audio info grid: the
+                                // chunk/wall/first-audio sums of the feed
+                                // window (the footer says exactly that)
+                                readonly property var audioTot: {
+                                    var out = { chunks: 0, wall: 0, first: -1 }
+                                    if (srv.st === null) return out
+                                    var fsum = 0, n = 0
+                                    srv.st.audioReqs.forEach(function (r) {
+                                        out.chunks += r.chunks
+                                        if (r.durMs >= 0) out.wall += r.durMs
+                                        if (r.ttfbMs !== null && r.ttfbMs >= 0) {
+                                            fsum += r.ttfbMs
+                                            n += 1
+                                        }
+                                    })
+                                    if (n > 0) out.first = fsum / n
+                                    return out
+                                }
                                 // generation progress first, prefill while reading
                                 readonly property double progress: {
                                     var st = srv.st
@@ -1112,121 +1202,13 @@ ColumnLayout {
                                         text: srv.progressText !== "" ? srv.progressText : " "
                                     }
 
-                                    // ── audio.cpp: its OWN recent-requests feed ──
-                                    // Tokens and context do not exist for TTS/ASR,
-                                    // so audio cards replace the token grid with
-                                    // one row per recent request (max 8 per
-                                    // family; the live open request is one of
-                                    // them): time, chunks, wall time, first-audio
-                                    // time, state. One block per model family
-                                    // the server has served (server.model.family
-                                    // prefixes the timing keys; lazy_load swaps
-                                    // models per request). The chunks/first-audio
-                                    // columns blank to "–" under statShowTokens,
-                                    // exactly like the shared request table does.
-                                    ColumnLayout {
-                                        id: audioFeed
-                                        Layout.fillWidth: true
-                                        Layout.topMargin: 2
-                                        spacing: 1
-                                        visible: srv.audioCard
-
-                                        // families in first-seen order
-                                        readonly property var famNames: {
-                                            if (srv.st === null) return []
-                                            const out = []
-                                            srv.st.audioReqs.forEach(function (r) {
-                                                if (out.indexOf(r.fam) === -1) out.push(r.fam)
-                                            })
-                                            return out
-                                        }
-
-                                        Repeater {
-                                            model: audioFeed.famNames
-                                            delegate: ColumnLayout {
-                                                required property string modelData
-                                                Layout.fillWidth: true
-                                                spacing: 1
-                                                // family name header only when several models share the feed
-                                                PlasmaComponents.Label {
-                                                    visible: audioFeed.famNames.length > 1
-                                                    Layout.fillWidth: true
-                                                    horizontalAlignment: Qt.AlignRight
-                                                    font: Kirigami.Theme.smallFont
-                                                    opacity: 0.55
-                                                    text: modelData
-                                                }
-                                                // mini column header per block
-                                                RowLayout {
-                                                    Layout.fillWidth: true
-                                                    Layout.leftMargin: 8
-                                                    spacing: Kirigami.Units.smallSpacing
-                                                    PlasmaComponents.Label { Layout.fillWidth: true }
-                                                    PlasmaComponents.Label { Layout.preferredWidth: 42; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("chunks") }
-                                                    PlasmaComponents.Label { Layout.preferredWidth: 68; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("wall") }
-                                                    PlasmaComponents.Label { Layout.preferredWidth: 68; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("first audio") }
-                                                    PlasmaComponents.Label { Layout.preferredWidth: 72; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("state") }
-                                                }
-                                                Repeater {
-                                                    model: (srv.st ? srv.st.audioReqs : [])
-                                                           .filter(function (r) { return r.fam === modelData })
-                                                    delegate: RowLayout {
-                                                        required property var modelData
-                                                        Layout.fillWidth: true
-                                                        Layout.leftMargin: 8
-                                                        spacing: Kirigami.Units.smallSpacing
-                                                        PlasmaComponents.Label {
-                                                            Layout.fillWidth: true
-                                                            color: Kirigami.Theme.textColor
-                                                            opacity: 0.7
-                                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; family: statsTab.monoFontFamily }
-                                                            text: modelData.at > 0 ? Logic.fmtClock(modelData.at) : "–"
-                                                        }
-                                                        PlasmaComponents.Label {
-                                                            Layout.preferredWidth: 42
-                                                            horizontalAlignment: Qt.AlignRight
-                                                            color: Kirigami.Theme.textColor
-                                                            opacity: 0.9
-                                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; family: statsTab.monoFontFamily }
-                                                            text: page.backend.statShowTokens ? String(modelData.chunks) : "–"
-                                                        }
-                                                        PlasmaComponents.Label {
-                                                            Layout.preferredWidth: 68
-                                                            horizontalAlignment: Qt.AlignRight
-                                                            color: Kirigami.Theme.textColor
-                                                            opacity: 0.9
-                                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; family: statsTab.monoFontFamily }
-                                                            text: Logic.fmtFeedMs(modelData.durMs)
-                                                        }
-                                                        PlasmaComponents.Label {
-                                                            Layout.preferredWidth: 68
-                                                            horizontalAlignment: Qt.AlignRight
-                                                            color: Kirigami.Theme.textColor
-                                                            opacity: 0.9
-                                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; family: statsTab.monoFontFamily }
-                                                            text: page.backend.statShowTokens ? Logic.fmtFeedTtfb(modelData.ttfbMs) : "–"
-                                                        }
-                                                        PlasmaComponents.Label {
-                                                            Layout.preferredWidth: 72
-                                                            horizontalAlignment: Qt.AlignRight
-                                                            opacity: modelData.err ? 1 : 0.7
-                                                            color: modelData.err ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
-                                                            text: modelData.err ? i18n("error")
-                                                                  : modelData.running ? i18n("generating") : i18n("done")
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
                                     // token totals (text servers): a fixed
                                     // 5-column grid — constant header labels
                                     // and tabular digits keep every column in
                                     // place, so growing totals never reflow
                                     // the card (the per-second flicker text
-                                    // flows used to cause). audio replaces it
-                                    // with its request feed above.
+                                    // flows used to cause). audio uses its own
+                                    // info grid below instead.
                                     GridLayout {
                                         Layout.fillWidth: true
                                         columns: 5
@@ -1286,69 +1268,117 @@ ColumnLayout {
                                                   : "—"
                                         }
                                     }
-                                }
-                            }
-                        }
 
-                        // ── recent requests, all servers, newest first ──
-                        Rectangle {
-                            id: reqCard
-                            Layout.fillWidth: true
-                            visible: page.backend.statShowEvents && page.backend.statsReqRows.length > 0
-                            radius: Kirigami.Units.cornerRadius
-                            color: statsTab.cardColor
-                            border.width: 1
-                            border.color: statsTab.cardBorder
-                            implicitHeight: reqCol.implicitHeight + Kirigami.Units.largeSpacing
+                                    // ── audio.cpp: its own info row ──
+                                    // Tokens and context do not exist for
+                                    // TTS/ASR: the audio card's info grid
+                                    // reports the feed window itself — the
+                                    // requests seen in the tail, plus the
+                                    // chunk / wall / first-audio totals of
+                                    // the recent requests (the footer under
+                                    // the table names that window exactly).
+                                    // Chunks and first audio blank out under
+                                    // statShowTokens, like the text token
+                                    // grid disappears with it.
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 4
+                                        columnSpacing: Kirigami.Units.largeSpacing
+                                        rowSpacing: 0
+                                        visible: srv.audioCard
 
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("requests") }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("chunks") }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("wall") }
+                                        PlasmaComponents.Label { Layout.fillWidth: true; horizontalAlignment: Qt.AlignRight; font: Kirigami.Theme.smallFont; opacity: 0.55; text: i18n("first audio") }
 
-                            readonly property var tot: {
-                                var t = { reqs: 0, tin: 0, tout: 0, reused: 0 }
-                                statsTab.rows.forEach(function (r) {
-                                    if (!r.st) return
-                                    if (r.st.events >= 0) t.reqs += r.st.events
-                                    if (r.st.promptTok >= 0) t.tin += r.st.promptTok
-                                    if (r.st.outTok >= 0) t.tout += r.st.outTok
-                                    if (r.st.reusedTok >= 0) t.reused += r.st.reusedTok
-                                })
-                                return t
-                            }
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            color: Kirigami.Theme.textColor
+                                            opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
+                                            text: srv.st && srv.st.events >= 0 ? Logic.fmtTokens(srv.st.events) : "—"
+                                        }
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            color: Kirigami.Theme.textColor
+                                            opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
+                                            text: page.backend.statShowTokens && srv.audioTot.chunks > 0 ? Logic.fmtTokens(srv.audioTot.chunks) : "—"
+                                        }
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            color: Kirigami.Theme.textColor
+                                            opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
+                                            text: srv.audioTot.wall > 0 ? Logic.fmtFeedMs(srv.audioTot.wall) : "—"
+                                        }
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            color: Kirigami.Theme.textColor
+                                            opacity: 0.9
+                                            horizontalAlignment: Qt.AlignRight
+                                            font { pointSize: Kirigami.Theme.smallFont.pointSize; bold: true; family: statsTab.monoFontFamily }
+                                            text: page.backend.statShowTokens && srv.audioTot.first >= 0 ? Logic.fmtFeedTtfb(srv.audioTot.first) : "—"
+                                        }
+                                    }
 
-                            ColumnLayout {
-                                id: reqCol
-                                anchors.fill: parent
-                                anchors.margins: Kirigami.Units.smallSpacing
-                                spacing: 1
-
-                                // One grid for header + data: ReqTable
-                                // measures header and values together, so
-                                // they can never disagree, and stretches
-                                // the token columns to fill the card.
-                                ReqTable {
-                                    id: reqTab
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: reqTab.preferredH
-                                    streamRows: page.backend.statsReqRows
-                                    showTokens: page.backend.statShowTokens
-                                }
-
-                                PlasmaComponents.Label {
-                                    Layout.fillWidth: true
-                                    font: Kirigami.Theme.smallFont
-                                    opacity: 0.65
-                                    elide: Text.ElideRight
-                                    text: {
-                                        var t = reqCard.tot
-                                        var parts = [i18n("%1 req total", Logic.fmtTokens(t.reqs))]
-                                        if (page.backend.statShowTokens) {
-                                            parts.push(i18n("%1 tok in", Logic.fmtTokens(t.tin)))
-                                            parts.push(i18n("%1 tok out", Logic.fmtTokens(t.tout)))
-                                            if (t.reused > 0) {
-                                                var pct = t.tin > 0 ? Math.round(100 * t.reused / t.tin) : 0
-                                                parts.push(i18n("%1 reused (%2%)", Logic.fmtTokens(t.reused), pct))
+                                    // ── its own recent-requests table ──
+                                    // (header + rows in ReqTable.qml, footer
+                                    // below): the unified all-servers stream
+                                    // is gone — text cards draw their parsed
+                                    // feed (no server column: the card IS
+                                    // the server), audio cards their family
+                                    // feed with its own column names.
+                                    ReqTable {
+                                        id: srvReqTab
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: srvReqTab.preferredH
+                                        // hidden (width 0) while collapsed:
+                                        // ReqTable falls back to the measured
+                                        // minimums and re-stretches the
+                                        // moment the layout gives it a width
+                                        visible: page.backend.statShowEvents
+                                                 && srv.feedRows.length > 0
+                                                 && srv.feedOpen
+                                        columns: srv.audioCard ? statsTab.audioCols : statsTab.reqCols
+                                        rows: srv.feedRows
+                                    }
+                                    // the footer doubles as the table's
+                                    // toggle: always visible one-line summary,
+                                    // click opens/closes the table above it
+                                    QQC2.ToolButton {
+                                        Layout.fillWidth: true
+                                        flat: true
+                                        checkable: true
+                                        checked: srv.feedOpen
+                                        onToggled: srv.feedOpen = checked
+                                        visible: page.backend.statShowEvents && srv.feedRows.length > 0
+                                        leftPadding: 0
+                                        rightPadding: 0
+                                        contentItem: RowLayout {
+                                            PlasmaComponents.Label {
+                                                Layout.fillWidth: true
+                                                font: Kirigami.Theme.smallFont
+                                                opacity: 0.65
+                                                elide: Text.ElideRight
+                                                text: statsTab.cardFooter(srv.row)
+                                            }
+                                            Kirigami.Icon {
+                                                Layout.alignment: Qt.AlignVCenter
+                                                Layout.preferredWidth: Kirigami.Units.iconSizes.small
+                                                Layout.preferredHeight: Kirigami.Units.iconSizes.small
+                                                opacity: 0.65
+                                                source: srv.feedOpen
+                                                        ? "pan-up-symbolic" : "pan-down-symbolic"
                                             }
                                         }
-                                        return parts.join("  •  ")
+                                        PlasmaComponents.ToolTip {
+                                            text: srv.feedOpen ? i18n("Hide requests") : i18n("Show requests")
+                                        }
                                     }
                                 }
                             }

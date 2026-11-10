@@ -1,57 +1,64 @@
-// ReqTable.qml – the shared recent-requests grid of the Stats tab.
-// Rows arrive already formatted from the stream (Logic.fmtReqRow in
-// main.qml); this component owns the i18n header, the per-column text
-// measurement, and the stretch that keeps the table filled at any width
-// — exactly like GaugeRing/Sparkline own their drawing.
+// ReqTable.qml – the measured request grid embedded in each Stats card.
+// Generic on purpose: the caller declares the columns — { key, title,
+// mono, right, errKey } — and feeds rows already formatted per key
+// (Logic.serverReqFeed for the text servers, the backend's audio feed for
+// audio.cpp). This component owns the per-column text measurement and the
+// stretch that keeps the grid filled at any width — exactly like
+// GaugeRing/Sparkline own their drawing. The header is part of the grid:
+// measurement and painting walk the same strings, so they never disagree.
 import QtQuick
-import Qt.labs.qmlmodels
+import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-TableView {
+pragma ComponentBehavior: Bound
+
+Item {
     id: reqGrid
 
-    // stream rows: { time, server, status, inTok, reused, outTok, tps, dur }
-    required property var streamRows
-    // token columns (reused/out) blank out when the tokens toggle is off
-    property bool showTokens: true
+    // [{ key, title, mono, right, errKey }] — titles arrive already i18n'd;
+    // a column whose rows carry a truthy row[errKey] flag paints negative
+    required property var columns
+    // data rows: objects keyed by column key, values already formatted
+    // strings (masking included) by whoever built the feed
+    required property var rows
 
-    interactive: false
-    rowSpacing: 1
-    columnSpacing: Kirigami.Units.largeSpacing
+    property int columnSpacing: Kirigami.Units.largeSpacing
+    property int rowSpacing: 1
 
-    // header + masking happen here so the model and the measurement
-    // are always built from the same strings, in one pass. NOT bindings:
-    // measuring mutates TextMetrics.text, and a binding that mutates
-    // properties it also reads (advanceWidth) trips QML's binding-loop
-    // detector. recalc() runs from change handlers instead.
-    property var modelRows: []
+    // TextMetrics has no line metrics: FontMetrics gives the true line
+    // advance for the row height.
+    FontMetrics {
+        id: fmRow
+        font: Kirigami.Theme.smallFont
+    }
+    readonly property int rowH: Math.ceil(fmRow.lineSpacing) + 4
+    // the exact height the grid needs (header + rows): MainPage assigns
+    // it as Layout.preferredHeight so the card never jumps
+    readonly property int preferredH: allRows.length > 0
+                                      ? allRows.length * rowH + (allRows.length - 1) * rowSpacing
+                                      : 0
+    implicitHeight: preferredH
+
+    // header + data in ONE array (header first). NOT bindings: measuring
+    // mutates TextMetrics.text, and a binding that mutates properties it
+    // also reads (advanceWidth) trips QML's binding-loop detector.
+    // recalc() runs from change handlers instead.
+    property var allRows: []
     property var cols: []
     function recalc() {
-        modelRows = buildRows()
-        cols = measureCols(modelRows)
+        if (!Array.isArray(columns)) {
+            allRows = []
+            cols = []
+            return
+        }
+        var head = {}
+        columns.forEach(function (c) { head[c.key] = c.title })
+        allRows = [head].concat(Array.isArray(rows) ? rows : [])
+        cols = measureCols(allRows)
     }
-    onStreamRowsChanged: recalc()
-    onShowTokensChanged: recalc()
+    onColumnsChanged: recalc()
+    onRowsChanged: recalc()
     Component.onCompleted: recalc()
-    function buildRows() {
-        // Prompt / Out / Decode t/s are deliberately NOT i18n():
-        // they stay in English in every language, like the tps values.
-        var out = [{
-            time: i18n("Time"), server: i18n("Server"),
-            status: i18n("State"), inTok: "Prompt",
-            reused: i18n("Reused"), outTok: "Out",
-            tps: "Decode t/s", dur: i18n("Duration")
-        }]
-        streamRows.forEach(function (r) {
-            if (!showTokens) {
-                r = Object.assign({}, r)
-                r.reused = "–"
-                r.outTok = ""
-            }
-            out.push(r)
-        })
-        return out
-    }
 
     TextMetrics {
         id: tmRow
@@ -72,34 +79,20 @@ TableView {
             pointSize: Kirigami.Theme.smallFont.pointSize
         }
     }
-    // TextMetrics has no line metrics: FontMetrics gives the true line
-    // advance for the row height.
-    FontMetrics {
-        id: fmRow
-        font: Kirigami.Theme.smallFont
-    }
-    readonly property int rowH: Math.ceil(fmRow.lineSpacing) + 4
-    // the exact height the grid needs: MainPage assigns it as
-    // Layout.preferredHeight so the card never jumps
-    readonly property int preferredH: modelRows.length > 0
-                                      ? modelRows.length * rowH + modelRows.length - 1
-                                      : 0
 
     // a column is as wide as the widest string actually painted in it
     // (header or any value), measured with its real font. advanceWidth is
     // a TextMetrics PROPERTY fed by `text` — not a callable method.
     function measureCols(mrows) {
-        const keys = ["time", "server", "status", "inTok", "reused",
-                      "outTok", "tps", "dur"]
         const ws = []
-        for (let c = 0; c < keys.length; c = c + 1) {
-            const k = keys[c]
-            const head = c === 0 ? tmMono : tmHead
-            head.text = mrows[0][k]
+        for (let c = 0; c < columns.length; c = c + 1) {
+            const def = columns[c]
+            const head = def.mono ? tmMono : tmHead
+            head.text = mrows[0][def.key]
             let w = head.advanceWidth
-            const tm = c === 0 ? tmMono : tmRow
+            const tm = def.mono ? tmMono : tmRow
             for (let i = 1; i < mrows.length; i = i + 1) {
-                tm.text = mrows[i][k]
+                tm.text = mrows[i][def.key]
                 w = Math.max(w, tm.advanceWidth)
             }
             ws.push(Math.ceil(w) + 4)
@@ -109,7 +102,7 @@ TableView {
 
     // final column widths: measured content is the MINIMUM; any width the
     // card has left over is shared proportionally across every column, so
-    // the table fills the popup at any size (left text hugs the left,
+    // the grid fills the card at any size (left text hugs the left,
     // right-aligned numbers hug each column's right edge) and reflows on
     // every resize
     readonly property var colW: {
@@ -129,39 +122,45 @@ TableView {
         return out
     }
 
-    rowHeightProvider: function () { return reqGrid.rowH }
-    columnWidthProvider: function (c) {
-        return c < reqGrid.colW.length ? reqGrid.colW[c] : -1
-    }
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: reqGrid.rowSpacing
 
-    model: TableModel {
-        TableModelColumn { display: "time" }
-        TableModelColumn { display: "server" }
-        TableModelColumn { display: "status" }
-        TableModelColumn { display: "inTok" }
-        TableModelColumn { display: "reused" }
-        TableModelColumn { display: "outTok" }
-        TableModelColumn { display: "tps" }
-        TableModelColumn { display: "dur" }
-        rows: reqGrid.modelRows
-    }
+        Repeater {
+            model: reqGrid.allRows
+            delegate: RowLayout {
+                id: rowItem
+                required property var modelData
+                required property int index
+                Layout.fillWidth: true
+                Layout.preferredHeight: reqGrid.rowH
+                spacing: reqGrid.columnSpacing
 
-    delegate: Text {
-        required property int row
-        required property int column
-        required property var model
-        text: model ? model.display : ""
-        // plain Text items do not inherit the Plasma palette: without this
-        // the grid paints black-on-dark
-        color: Kirigami.Theme.textColor
-        font {
-            pointSize: Kirigami.Theme.smallFont.pointSize
-            family: column === 0 ? "monospace" : Kirigami.Theme.smallFont.family
-            bold: row === 0
+                Repeater {
+                    model: reqGrid.columns
+                    delegate: Text {
+                        required property var modelData // column definition
+                        required property int index
+                        text: rowItem.modelData[modelData.key] !== undefined
+                              ? rowItem.modelData[modelData.key] : ""
+                        // plain Text items do not inherit the Plasma palette:
+                        // without this the grid paints black-on-dark
+                        color: modelData.errKey && rowItem.modelData[modelData.errKey]
+                               ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
+                        font {
+                            pointSize: Kirigami.Theme.smallFont.pointSize
+                            family: modelData.mono ? "monospace" : Kirigami.Theme.smallFont.family
+                            bold: rowItem.index === 0
+                        }
+                        // Qt.Align* (not Text.Align*): same values, but the
+                        // linter cannot confuse the enum with the component's
+                        // own type name
+                        horizontalAlignment: modelData.right ? Qt.AlignRight : Qt.AlignLeft
+                        opacity: rowItem.index === 0 ? 0.75 : 1
+                        Layout.preferredWidth: index < reqGrid.colW.length ? reqGrid.colW[index] : 0
+                    }
+                }
+            }
         }
-        // Qt.Align* (not Text.Align*): same values, but the linter cannot
-        // confuse the enum with the component's own type name
-        horizontalAlignment: column <= 2 ? Qt.AlignLeft : Qt.AlignRight
-        opacity: row === 0 ? 0.75 : 1
     }
 }

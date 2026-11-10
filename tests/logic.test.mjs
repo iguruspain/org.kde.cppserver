@@ -237,14 +237,22 @@ test("parseGpu: vramowner lines attribute VRAM to server sessions", () => {
     assert.equal(L.gpuReadout(g.gpuName), "RTX 3090"); // vendor AND Geforce prefix go
 });
 
-test("mergeReqs: newest first, unstamped rows sink, cap applies", () => {
-    const rows = L.mergeReqs([
-        { name: "a", reqs: [{ at: 100, tps: 1 }, { at: 0, tps: 2 }] },
-        { name: "b", reqs: [{ at: 300, tps: 3 }] }
-    ], 2);
-    assert.deepEqual(rows.map(r => r.at), [300, 100]);
-    assert.equal(rows[0].name, "b");
-    assert.equal(L.mergeReqs([{ name: "a", reqs: [{ at: 1 }, { at: 2 }, { at: 3 }] }], 2).length, 2);
+test("serverReqFeed: per-card table rows, newest first, unstamped sink, cap applies", () => {
+    const rows = L.serverReqFeed([{ at: 100, tps: 1 }, { at: 0, tps: 2 }, { at: 300, tps: 3 }], true);
+    assert.equal(rows.length, 3);
+    // formatted strings, and the server column is gone (the card IS the server)
+    assert.deepEqual(Object.keys(rows[0]), ["time", "status", "inTok", "reused", "outTok", "tps", "dur"]);
+    assert.equal(rows[0].tps, "3.00"); // at=300 first
+    assert.equal(rows[1].tps, "1.00");
+    assert.equal(rows[2].tps, "2.00"); // unstamped rows sink to the bottom
+    const many = [];
+    for (let i = 1; i <= L.REQ_FEED_MAX + 3; i++) many.push({ at: i });
+    assert.equal(L.serverReqFeed(many, true).length, L.REQ_FEED_MAX);
+    // the tokens toggle blanks the token columns (reused/out only)
+    const off = L.serverReqFeed([{ at: 5, inTok: 40, reused: 12, outTok: 33, tps: 7 }], false)[0];
+    assert.equal(off.inTok, "40"); // prompt count is a request row, it stays
+    assert.equal(off.reused, "–");
+    assert.equal(off.outTok, "–");
 });
 
 test("fmtReqRow: t/s prints exactly, empty slots are dashes", () => {

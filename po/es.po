@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-10 10:29+0100\n"
+"POT-Creation-Date: 2026-11-10 12:54+0100\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -95,7 +95,7 @@ msgid "No servers match"
 msgstr "Ningún servidor coincide"
 
 #: contents/ui/MainPage.qml:186 contents/ui/MainPage.qml:432
-#: contents/ui/MainPage.qml:1365 contents/ui/main.qml:54
+#: contents/ui/MainPage.qml:1395 contents/ui/main.qml:54
 msgid "No servers configured"
 msgstr "No hay servidores configurados"
 
@@ -177,7 +177,7 @@ msgstr "(esperando salida…)"
 msgid "Server not running – start it from the Servers tab."
 msgstr "Servidor detenido – inícialo desde la pestaña Servidores."
 
-#: contents/ui/MainPage.qml:433 contents/ui/MainPage.qml:1367
+#: contents/ui/MainPage.qml:433 contents/ui/MainPage.qml:1397
 msgid "Add servers in the widget settings."
 msgstr "Añade servidores en los ajustes del widget."
 
@@ -213,170 +213,170 @@ msgstr "prompt"
 msgid "out"
 msgstr "salida"
 
-#: contents/ui/MainPage.qml:709
-msgid "Speed"
-msgstr "Velocidad"
-
-#: contents/ui/MainPage.qml:712
-msgid "mean %1 tok/s"
-msgstr "media %1 tok/s"
-
-#: contents/ui/MainPage.qml:719
-msgid "GPU temp"
-msgstr "Temp GPU"
-
-#: contents/ui/MainPage.qml:724
-msgid "GPU power"
-msgstr "Potencia GPU"
-
-#: contents/ui/MainPage.qml:726
-msgid "limit %1 W"
-msgstr "límite %1 W"
-
-#: contents/ui/MainPage.qml:729
-msgid "Disk"
-msgstr "Disco"
-
-#: contents/ui/MainPage.qml:739
-msgid "no HTTP port (set host + port to monitor)"
-msgstr "sin puerto HTTP (define host + puerto para monitorizar)"
-
-#: contents/ui/MainPage.qml:742
-msgid "no metrics from its HTTP API%1"
-msgstr "sin métricas en su API HTTP%1"
-
-#: contents/ui/MainPage.qml:752
-msgid "Live monitor"
-msgstr "Monitor en vivo"
-
-#: contents/ui/MainPage.qml:759
-msgid "HTTP probes every second while this tab is open"
-msgstr "Sondas HTTP cada segundo mientras esta pestaña está abierta"
-
-#: contents/ui/MainPage.qml:766
-msgid "Configure what the monitor shows…"
-msgstr "Configura qué muestra el monitor…"
-
-#: contents/ui/MainPage.qml:803
-msgid "CPU"
-msgstr "CPU"
-
-#: contents/ui/MainPage.qml:807
-msgid "%1 cores / %2 threads"
-msgstr "%1 núcleos / %2 hilos"
-
-#: contents/ui/MainPage.qml:809
-msgid "%1 cores"
-msgstr "%1 núcleos"
-
-#: contents/ui/MainPage.qml:817
-msgid "GPU"
-msgstr "GPU"
-
-#: contents/ui/MainPage.qml:827
-msgid "VRAM"
-msgstr "VRAM"
-
-#: contents/ui/MainPage.qml:841
-msgid "RAM"
-msgstr "RAM"
-
-#: contents/ui/MainPage.qml:954
-msgid "generating %1 / %2 tok"
-msgstr "generando %1 / %2 tok"
-
-#: contents/ui/MainPage.qml:957
-msgid "reading prompt %1 / %2 tok"
-msgstr "leyendo prompt %1 / %2 tok"
-
-#: contents/ui/MainPage.qml:963
-msgid "generating %1 tok"
-msgstr "generando %1 tok"
-
-#: contents/ui/MainPage.qml:1165
-msgid "chunks"
-msgstr "trozos"
-
-#: contents/ui/MainPage.qml:1166
-msgid "wall"
-msgstr "muro"
-
-#: contents/ui/MainPage.qml:1167
-msgid "first audio"
-msgstr "1er audio"
-
-#: contents/ui/MainPage.qml:1168
-msgid "state"
-msgstr "estado"
-
-#: contents/ui/MainPage.qml:1214
-msgid "error"
-msgstr "error"
-
-#: contents/ui/MainPage.qml:1215
-msgid "done"
-msgstr "hecho"
-
-#: contents/ui/MainPage.qml:1215
-msgid "generating"
-msgstr "generando"
-
-#. i18n(): they stay in English everywhere.
-#: contents/ui/MainPage.qml:1240
-msgid "requests"
-msgstr "peticiones"
-
-#: contents/ui/MainPage.qml:1243
-msgid "reused"
-msgstr "reutilizado"
-
-#: contents/ui/MainPage.qml:1244
-msgid "context"
-msgstr "contexto"
-
-#: contents/ui/MainPage.qml:1342
-msgid "%1 req total"
-msgstr "%1 petic. total"
-
-#: contents/ui/MainPage.qml:1344
-msgid "%1 tok in"
-msgstr "%1 tok ent."
-
-#: contents/ui/MainPage.qml:1345
-msgid "%1 tok out"
-msgstr "%1 tok sal."
-
-#: contents/ui/MainPage.qml:1348
-msgid "%1 reused (%2%)"
-msgstr "%1 reutilizados (%2%)"
-
-#: contents/ui/MainPage.qml:1365
-msgid "No servers running"
-msgstr "No hay servidores en ejecución"
-
-#: contents/ui/MainPage.qml:1368
-msgid "Start a server to see its live stats here."
-msgstr "Inicia un servidor para ver aquí sus estadísticas en vivo."
-
-#: contents/ui/ReqTable.qml:40
-msgid "Server"
-msgstr "Servidor"
-
-#: contents/ui/ReqTable.qml:40
+#: contents/ui/MainPage.qml:633 contents/ui/MainPage.qml:642
 msgid "Time"
 msgstr "Hora"
 
-#: contents/ui/ReqTable.qml:41
+#: contents/ui/MainPage.qml:634 contents/ui/MainPage.qml:644
 msgid "State"
 msgstr "Estado"
 
-#: contents/ui/ReqTable.qml:42
-msgid "Reused"
-msgstr "Reutilizado"
-
-#: contents/ui/ReqTable.qml:43
+#: contents/ui/MainPage.qml:639
 msgid "Duration"
 msgstr "Duración"
+
+#: contents/ui/MainPage.qml:643
+msgid "Model"
+msgstr "Modelo"
+
+#: contents/ui/MainPage.qml:647
+msgid "First audio"
+msgstr "Primer audio"
+
+#: contents/ui/MainPage.qml:716
+msgid "%1 req total"
+msgstr "%1 petic. total"
+
+#: contents/ui/MainPage.qml:725
+msgid "%1 chunks"
+msgstr "%1 trozos"
+
+#: contents/ui/MainPage.qml:726
+msgid "wall %1"
+msgstr "muro %1"
+
+#: contents/ui/MainPage.qml:731
+msgid "%1 tok in"
+msgstr "%1 tok ent."
+
+#: contents/ui/MainPage.qml:732
+msgid "%1 tok out"
+msgstr "%1 tok sal."
+
+#: contents/ui/MainPage.qml:735
+msgid "%1 reused (%2%)"
+msgstr "%1 reutilizados (%2%)"
+
+#: contents/ui/MainPage.qml:767
+msgid "Speed"
+msgstr "Velocidad"
+
+#: contents/ui/MainPage.qml:770
+msgid "mean %1 tok/s"
+msgstr "media %1 tok/s"
+
+#: contents/ui/MainPage.qml:777
+msgid "GPU temp"
+msgstr "Temp GPU"
+
+#: contents/ui/MainPage.qml:782
+msgid "GPU power"
+msgstr "Potencia GPU"
+
+#: contents/ui/MainPage.qml:784
+msgid "limit %1 W"
+msgstr "límite %1 W"
+
+#: contents/ui/MainPage.qml:787
+msgid "Disk"
+msgstr "Disco"
+
+#: contents/ui/MainPage.qml:797
+msgid "no HTTP port (set host + port to monitor)"
+msgstr "sin puerto HTTP (define host + puerto para monitorizar)"
+
+#: contents/ui/MainPage.qml:800
+msgid "no metrics from its HTTP API%1"
+msgstr "sin métricas en su API HTTP%1"
+
+#: contents/ui/MainPage.qml:810
+msgid "Live monitor"
+msgstr "Monitor en vivo"
+
+#: contents/ui/MainPage.qml:817
+msgid "HTTP probes every second while this tab is open"
+msgstr "Sondas HTTP cada segundo mientras esta pestaña está abierta"
+
+#: contents/ui/MainPage.qml:824
+msgid "Configure what the monitor shows…"
+msgstr "Configura qué muestra el monitor…"
+
+#: contents/ui/MainPage.qml:861
+msgid "CPU"
+msgstr "CPU"
+
+#: contents/ui/MainPage.qml:865
+msgid "%1 cores / %2 threads"
+msgstr "%1 núcleos / %2 hilos"
+
+#: contents/ui/MainPage.qml:867
+msgid "%1 cores"
+msgstr "%1 núcleos"
+
+#: contents/ui/MainPage.qml:875
+msgid "GPU"
+msgstr "GPU"
+
+#: contents/ui/MainPage.qml:885
+msgid "VRAM"
+msgstr "VRAM"
+
+#: contents/ui/MainPage.qml:899
+msgid "RAM"
+msgstr "RAM"
+
+#: contents/ui/MainPage.qml:1044
+msgid "generating %1 / %2 tok"
+msgstr "generando %1 / %2 tok"
+
+#: contents/ui/MainPage.qml:1047
+msgid "reading prompt %1 / %2 tok"
+msgstr "leyendo prompt %1 / %2 tok"
+
+#: contents/ui/MainPage.qml:1053
+msgid "generating %1 tok"
+msgstr "generando %1 tok"
+
+#. i18n(): they stay in English everywhere.
+#: contents/ui/MainPage.qml:1222 contents/ui/MainPage.qml:1290
+msgid "requests"
+msgstr "peticiones"
+
+#: contents/ui/MainPage.qml:1225
+msgid "reused"
+msgstr "reutilizado"
+
+#: contents/ui/MainPage.qml:1226
+msgid "context"
+msgstr "contexto"
+
+#: contents/ui/MainPage.qml:1291
+msgid "chunks"
+msgstr "trozos"
+
+#: contents/ui/MainPage.qml:1292
+msgid "wall"
+msgstr "muro"
+
+#: contents/ui/MainPage.qml:1293
+msgid "first audio"
+msgstr "1er audio"
+
+#: contents/ui/MainPage.qml:1380
+msgid "Hide requests"
+msgstr "Ocultar peticiones"
+
+#: contents/ui/MainPage.qml:1380
+msgid "Show requests"
+msgstr "Mostrar peticiones"
+
+#: contents/ui/MainPage.qml:1395
+msgid "No servers running"
+msgstr "No hay servidores en ejecución"
+
+#: contents/ui/MainPage.qml:1398
+msgid "Start a server to see its live stats here."
+msgstr "Inicia un servidor para ver aquí sus estadísticas en vivo."
 
 #: contents/ui/config/ConfigLogs.qml:20
 msgid "Options for the log view in the widget. Changes apply immediately."
@@ -555,47 +555,47 @@ msgstr "El ID “%1” ya está en uso"
 msgid "Preset (strata launch):"
 msgstr "Preset (strata launch):"
 
-#: contents/ui/config/ConfigServers.qml:553
+#: contents/ui/config/ConfigServers.qml:582
 msgid "Reload strata presets"
 msgstr "Recargar presets de strata"
 
-#: contents/ui/config/ConfigServers.qml:559
+#: contents/ui/config/ConfigServers.qml:588
 msgid "Command:"
 msgstr "Comando:"
 
-#: contents/ui/config/ConfigServers.qml:571
+#: contents/ui/config/ConfigServers.qml:600
 msgid "Host / Port:"
 msgstr "Host / Puerto:"
 
-#: contents/ui/config/ConfigServers.qml:591
+#: contents/ui/config/ConfigServers.qml:620
 msgid "0 = not used"
 msgstr "0 = no se usa"
 
-#: contents/ui/config/ConfigServers.qml:597
+#: contents/ui/config/ConfigServers.qml:626
 msgid "Config file:"
 msgstr "Archivo de configuración:"
 
-#: contents/ui/config/ConfigServers.qml:612
+#: contents/ui/config/ConfigServers.qml:641
 msgid "Browse…"
 msgstr "Examinar…"
 
-#: contents/ui/config/ConfigServers.qml:619
+#: contents/ui/config/ConfigServers.qml:648
 msgid "Will run:"
 msgstr "Se ejecutará:"
 
-#: contents/ui/config/ConfigServers.qml:632
+#: contents/ui/config/ConfigServers.qml:661
 msgid "(empty)"
 msgstr "(vacío)"
 
-#: contents/ui/config/ConfigServers.qml:660
+#: contents/ui/config/ConfigServers.qml:689
 msgid "Saving…"
 msgstr "Guardando…"
 
-#: contents/ui/config/ConfigServers.qml:661
+#: contents/ui/config/ConfigServers.qml:690
 msgid "Not saved"
 msgstr "No guardado"
 
-#: contents/ui/config/ConfigServers.qml:662
+#: contents/ui/config/ConfigServers.qml:691
 msgid "Changes are saved automatically to %1"
 msgstr "Los cambios se guardan automáticamente en %1"
 
@@ -669,3 +669,15 @@ msgstr "Comando vacío para %1"
 #: contents/ui/main.qml:322
 msgid "Failed to start %1"
 msgstr "No se pudo iniciar %1"
+
+#: contents/ui/main.qml:458
+msgid "error"
+msgstr "error"
+
+#: contents/ui/main.qml:459
+msgid "done"
+msgstr "hecho"
+
+#: contents/ui/main.qml:459
+msgid "generating"
+msgstr "generando"

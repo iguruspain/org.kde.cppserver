@@ -441,20 +441,47 @@ PlasmoidItem {
         statsMap = Object.assign({}, statsMap, m)
     }
 
-    // The request stream: every parsed request — strata's /metrics
-    // requests and llama.cpp print_timing log rows — converges here,
-    // merged newest-first and already formatted per column. The Stats
-    // tab consumes it verbatim; it is the table's single data source.
-    property var statsReqRows: []
+    // The per-card request feeds: every parsed request — strata's /metrics
+    // requests and llama.cpp print_timing log rows — is formatted per
+    // column and kept SEPARATE per server id; each Stats card draws its
+    // own table from statsFeedMaps[id] (audio cards from their audioReqs:
+    // TTS/ASR have no token/context columns, so their rows carry family,
+    // chunks, wall time and an i18n state label instead).
+    property var statsFeedMaps: ({})
+    // format one server's request rows into final table strings
+    function feedRowsOf(st) {
+        if (st.kind === "audio") {
+            return st.audioReqs.map(function (r) {
+                return {
+                    time: r.at > 0 ? Logic.fmtClock(r.at) : "–",
+                    model: r.fam || "",
+                    status: r.err ? i18n("error")
+                          : r.running ? i18n("generating") : i18n("done"),
+                    chunks: root.statShowTokens ? String(r.chunks) : "–",
+                    wall: Logic.fmtFeedMs(r.durMs),
+                    first: root.statShowTokens ? Logic.fmtFeedTtfb(r.ttfbMs) : "–",
+                    // not a column: the State column's errKey paints these
+                    // rows negativeTextColor
+                    err: !!r.err
+                }
+            })
+        }
+        return Logic.serverReqFeed(st.reqs, root.statShowTokens)
+    }
     function refreshReqStream() {
-        var entries = []
+        var next = {}
         servers.forEach(function (s) {
             var e = statsMap[s.id]
             if (!e) return
             var st = Logic.parseStats(e, reqSeenOf(s.id), statsExtraOf(s.id))
-            // audio draws its OWN feed on the card: it has no token/
-            // context columns to fill, so it never joins the shared table
-            entries.push({ name: s.name || s.id, reqs: st.kind === "audio" ? [] : st.reqs })
+            var rows = feedRowsOf(st)
+            // idle servers produce an identical feed every tick: keep the
+            // same array reference so that card's ReqTable never
+            // re-measures/rebinds for nothing
+            var old = statsFeedMaps[s.id]
+            if (old && JSON.stringify(old) === JSON.stringify(rows))
+                rows = old
+            next[s.id] = rows
             // live speed feed for the Speed tile: t/s is only a CURRENT
             // figure while the server is actually generating — an idle
             // llama server holds its last tg in the sticky cache forever,
@@ -468,15 +495,22 @@ PlasmoidItem {
             lv.active = !!st.active
             lv.tps = (typeof st.tps === "number" && st.tps > 0) ? st.tps : 0
         })
-        var merged = Logic.mergeReqs(entries, 8).map(Logic.fmtReqRow)
-        // idle servers produce an identical stream every tick: keep the
-        // same array so ReqTable never re-measures/rebinds for nothing
-        if (JSON.stringify(merged) !== JSON.stringify(statsReqRows))
-            statsReqRows = merged
+        // only touch the property when some feed actually changed: the
+        // stable array references ride along, so cards rebind only for
+        // the servers whose stream moved
+        var ids = Object.keys(next)
+        var dirty = ids.length !== Object.keys(statsFeedMaps).length
+        ids.forEach(function (k) {
+            if (statsFeedMaps[k] !== next[k]) dirty = true
+        })
+        if (dirty) statsFeedMaps = next
     }
+    // the token columns of both the feeds and the cards react to the
+    // Stats toggle without waiting for a probe to move
+    onStatShowTokensChanged: refreshReqStream()
 
     // llama.cpp logs carry no wall-clock: remember when each task id was
-    // first observed (per server) so the shared request table can sort.
+    // first observed (per server) so the card's request table can sort.
     property var reqSeenMaps: ({})
     function reqSeenOf(id) {
         var m = reqSeenMaps[id]

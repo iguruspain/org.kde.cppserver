@@ -14,7 +14,7 @@ const API = [
     "homeExpand", "slugify", "normalizeServers", "serverBinary",
     "buildCommand", "subToken", "parseKv", "parseStatusall",
     "healthTally", "parseGpu", "gpuReadout", "pushHist", "stickify",
-    "parseStats", "fmtReqRow", "mergeReqs", "llamaLogStats",
+    "parseStats", "fmtReqRow", "serverReqFeed", "REQ_FEED_MAX", "llamaLogStats",
     "fmtTokens", "fmtTokensFull", "fmtMibPair", "fmtDur", "fmtAge",
     "fmtFeedMs", "fmtFeedTtfb", "AUDIO_FEED_MAX"
 ];
