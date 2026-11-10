@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_org.kde.cppserver\n"
 "Report-Msgid-Bugs-To: https://github.com/iguruspain\n"
-"POT-Creation-Date: 2026-11-10 16:28+0100\n"
+"POT-Creation-Date: 2026-11-10 16:32+0100\n"
 "PO-Revision-Date: 2026-10-09 07:58+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Spanish\n"
@@ -664,7 +664,11 @@ msgstr "Mostrar los totales (peticiones, tokens, reutilizados, contexto)"
 msgid "Show the detailed request table"
 msgstr "Mostrar la tabla detallada de peticiones"
 
-#: contents/ui/config/ConfigStats.qml:145
+#: contents/ui/config/ConfigStats.qml:143
+msgid "Notes"
+msgstr "Notas"
+
+#: contents/ui/config/ConfigStats.qml:149
 msgid ""
 "strata reports everything over its HTTP API (/metrics). llama.cpp gives the "
 "same figures - speed, context, live requests - from its log, so no extra "

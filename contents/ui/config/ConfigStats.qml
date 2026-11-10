@@ -138,6 +138,10 @@ KCM.SimpleKCM {
             onToggled: Plasmoid.configuration.statShowEvents = checked
         }
 
+        Kirigami.Separator {
+            Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: i18n("Notes")
+        }
         QQC2.Label {
             Layout.fillWidth: true
             opacity: 0.6
